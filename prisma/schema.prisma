@@ -1,0 +1,523 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum InventoryTransactionType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  TRANSFER
+  RETURN
+  OTHER
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([userId])
+}
+
+model Department {
+  id               String            @id @default(uuid())
+  name             String?
+  stockAllocations StockAllocation[]
+}
+
+model Invoice {
+  id            String    @id @default(uuid())
+  invoiceNumber String?   @unique
+  orderId       String?   @unique
+  status        String?
+  issuedAt      DateTime?
+  dueDate       DateTime?
+  totalAmount   Float?
+  currency      String?
+  notes         String?
+  order         Order?    @relation(fields: [orderId], references: [id])
+}
+
+model Order {
+  id           String                 @id @default(uuid())
+  orderNumber  String?                @unique
+  customerId   String?
+  status       String                 @default("draft")
+  orderedAt    DateTime?
+  fulfilledAt  DateTime?
+  totalAmount  Float?
+  notes        String?
+  source       String?
+  invoices     Invoice[]
+  orderItems   OrderItem[]
+  customer     Customer?              @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  transactions InventoryTransaction[]
+
+  @@index([customerId])
+}
+
+model OrderItem {
+  id               String          @id @default(uuid())
+  orderId          String
+  productId        String?
+  productVariantId String?
+  quantity         Int
+  unitPrice        Float
+  discount         Float?          @default(0)
+  subtotal         Float?
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant          ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([productVariantId])
+}
+
+model Permission {
+  id       String  @id @default(uuid())
+  resource String?
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resource])
+  @@index([userId])
+}
+
+model Product {
+  id                    String                 @id @default(uuid())
+  categoryId            String
+  createdAt             DateTime               @default(now())
+  name                  String
+  sku                   String                 @unique
+  status                String
+  supplierId            String
+  userId                String
+  defaultWarehouseId    String?
+  minStock              Int?
+  maxStock              Int?
+  reorderPoint          Int?
+  reorderQuantity       Int?
+  hasVariants           Boolean                @default(false)
+  imageUrl              String?
+  description           String?
+  category              Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  supplier              Supplier               @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultWarehouse      Warehouse?             @relation("ProductDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
+  stockAllocations      StockAllocation[]
+  stockLevels           StockLevel[]
+  inventoryTransactions InventoryTransaction[]
+  inventorySnapshots    InventorySnapshot[]
+  inventoryAdjustments  InventoryAdjustment[]
+  orderItems            OrderItem[]
+  purchaseOrderItems    PurchaseOrderItem[]
+  stockAlerts           StockAlert[]
+  variants              ProductVariant[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([supplierId])
+  @@index([defaultWarehouseId])
+}
+
+model ProductVariant {
+  id                    String                 @id @default(uuid())
+  productId             String
+  name                  String
+  sku                   String                 @unique
+  barcode               String?                @unique
+  price                 Float
+  costPrice             Float?
+  quantity              Int
+  minStock              Int?
+  maxStock              Int?
+  reorderPoint          Int?
+  size                  String?
+  color                 String?
+  material              String?
+  weight                String?
+  dimensions            String?
+  attributes            Json?
+  imageUrl              String?
+  expiryDate            DateTime?
+  isActive              Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  product               Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockLevels           StockLevel[]
+  inventoryTransactions InventoryTransaction[]
+  adjustments           InventoryAdjustment[]
+  inventorySnapshots    InventorySnapshot[]
+  orderItems            OrderItem[]
+  purchaseOrderItems    PurchaseOrderItem[]
+  stockAlerts           StockAlert[]
+
+  @@index([productId])
+  @@index([sku])
+}
+
+model Session {
+  id           String  @id @default(uuid())
+  sessionToken String? @unique
+  userId       String?
+  user         User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Customer {
+  id         String    @id @default(uuid())
+  userId     String
+  name       String
+  email      String?
+  phone      String?
+  company    String?
+  address    String?
+  city       String?
+  state      String?
+  country    String?
+  postalCode String?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime? @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@index([userId])
+}
+
+model Warehouse {
+  id              String                 @id @default(uuid())
+  name            String
+  code            String?                @unique
+  address         String?
+  userId          String
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime?              @updatedAt
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stockLevels     StockLevel[]
+  allocations     StockAllocation[]
+  transactions    InventoryTransaction[]
+  stockAlerts     StockAlert[]
+  adjustments     InventoryAdjustment[]
+  snapshots       InventorySnapshot[]
+  defaultProducts Product[]              @relation("ProductDefaultWarehouse")
+
+  @@index([userId])
+}
+
+model StockLevel {
+  id               String          @id @default(uuid())
+  warehouseId      String
+  productId        String?
+  productVariantId String?
+  quantity         Int             @default(0)
+  safetyStock      Int?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  warehouse        Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  product          Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant          ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, productId, productVariantId])
+  @@index([productId])
+  @@index([productVariantId])
+}
+
+model PurchaseOrder {
+  id           String                 @id @default(uuid())
+  poNumber     String?                @unique
+  supplierId   String
+  userId       String
+  status       String                 @default("draft")
+  orderedAt    DateTime?
+  expectedAt   DateTime?
+  receivedAt   DateTime?
+  totalCost    Float?
+  currency     String?
+  notes        String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime?              @updatedAt
+  supplier     Supplier               @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items        PurchaseOrderItem[]
+  transactions InventoryTransaction[]
+
+  @@index([supplierId])
+  @@index([userId])
+}
+
+model PurchaseOrderItem {
+  id               String          @id @default(uuid())
+  purchaseOrderId  String
+  productId        String?
+  productVariantId String?
+  orderedQuantity  Int
+  receivedQuantity Int             @default(0)
+  costPerUnit      Float?
+  lineTotal        Float?
+  purchaseOrder    PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product          Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant          ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@index([productVariantId])
+}
+
+model InventoryAdjustment {
+  id               String                 @id @default(uuid())
+  productId        String?
+  productVariantId String?
+  warehouseId      String?
+  userId           String?
+  quantityChange   Int
+  reason           String
+  notes            String?
+  createdAt        DateTime               @default(now())
+  product          Product?               @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant          ProductVariant?        @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  warehouse        Warehouse?             @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  user             User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  transactions     InventoryTransaction[]
+
+  @@index([productId])
+  @@index([productVariantId])
+  @@index([warehouseId])
+  @@index([userId])
+}
+
+model InventoryTransaction {
+  id               String                   @id @default(uuid())
+  transactionType  InventoryTransactionType
+  productId        String?
+  productVariantId String?
+  warehouseId      String?
+  userId           String?
+  orderId          String?
+  purchaseOrderId  String?
+  adjustmentId     String?
+  quantity         Int
+  referenceCode    String?
+  notes            String?
+  createdAt        DateTime                 @default(now())
+  product          Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant          ProductVariant?          @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  warehouse        Warehouse?               @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  user             User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order            Order?                   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  purchaseOrder    PurchaseOrder?           @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  adjustment       InventoryAdjustment?     @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([productVariantId])
+  @@index([warehouseId])
+  @@index([userId])
+  @@index([orderId])
+  @@index([purchaseOrderId])
+  @@index([adjustmentId])
+}
+
+model InventorySnapshot {
+  id               String          @id @default(uuid())
+  productId        String?
+  productVariantId String?
+  warehouseId      String?
+  quantity         Int
+  valuation        Float?
+  capturedAt       DateTime        @default(now())
+  product          Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant          ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  warehouse        Warehouse?      @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([productVariantId])
+  @@index([warehouseId])
+  @@index([capturedAt])
+}
+
+model Notification {
+  id         String    @id @default(uuid())
+  userId     String
+  type       String
+  message    String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entityType])
+}
+
+model IntegrationConnection {
+  id         String               @id @default(uuid())
+  userId     String
+  provider   String
+  status     String               @default("inactive")
+  config     Json?
+  lastSyncAt DateTime?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime?            @updatedAt
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncLogs   IntegrationSyncLog[]
+
+  @@index([userId])
+}
+
+model IntegrationSyncLog {
+  id            String                @id @default(uuid())
+  integrationId String
+  direction     String
+  status        String
+  message       String?
+  payload       Json?
+  createdAt     DateTime              @default(now())
+  integration   IntegrationConnection @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId])
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model UserRole {
+  id         String   @id @default(uuid())
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@index([userId])
+}
+
+model RolePermission {
+  id       String @id @default(uuid())
+  roleId   String
+  resource String
+  action   String
+  role     Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, resource, action])
+  @@index([roleId])
+}
+
+model StockAlert {
+  id               String          @id @default(uuid())
+  productId        String?
+  productVariantId String?
+  warehouseId      String?
+  threshold        Int?
+  alertType        String          @default("low_stock")
+  isActive         Boolean         @default(true)
+  resolvedAt       DateTime?
+  notes            String?
+  createdAt        DateTime        @default(now())
+  product          Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant          ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  warehouse        Warehouse?      @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([productVariantId])
+  @@index([warehouseId])
+}
+
+model StockAllocation {
+  id           String      @id @default(uuid())
+  departmentId String?
+  productId    String?
+  warehouseId  String?
+  quantity     Int?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  product      Product?    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse?  @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, departmentId, warehouseId])
+  @@index([productId])
+  @@index([departmentId])
+  @@index([warehouseId])
+}
+
+model Supplier {
+  id             String          @id @default(uuid())
+  name           String
+  contactName    String?
+  contactEmail   String?
+  contactPhone   String?
+  address        String?
+  notes          String?
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products       Product[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([userId])
+}
+
+model User {
+  id                    String                  @id @default(uuid())
+  createdAt             DateTime                @default(now())
+  email                 String                  @unique
+  name                  String
+  password              String
+  updatedAt             DateTime?               @updatedAt
+  username              String?                 @unique
+  categories            Category[]
+  permissions           Permission[]
+  products              Product[]
+  sessions              Session[]
+  suppliers             Supplier[]
+  customers             Customer[]
+  warehouses            Warehouse[]
+  purchaseOrders        PurchaseOrder[]
+  inventoryTransactions InventoryTransaction[]
+  inventoryAdjustments  InventoryAdjustment[]
+  notifications         Notification[]
+  integrations          IntegrationConnection[]
+  roles                 UserRole[]
+  userActions           UserAction[]
+}
+
+model UserAction {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String?
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entityType])
+}
+
+model VerificationToken {
+  id         String   @id @default(uuid())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
