@@ -81,7 +81,6 @@ export default function AddProductDialog({
   const { reset } = methods;
 
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [selectedSupplier, setSelectedSupplier] = useState<string>("");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false); // Button loading state
   const dialogCloseRef = useRef<HTMLButtonElement | null>(null);
@@ -96,7 +95,6 @@ export default function AddProductDialog({
     updateProduct,
     loadProducts,
     categories,
-    suppliers,
     warehouses,
     loadWarehouses,
   } = useProductStore();
@@ -118,7 +116,6 @@ export default function AddProductDialog({
         reorderQuantity: selectedProduct.reorderQuantity ?? undefined,
       });
       setSelectedCategory(selectedProduct.categoryId || "");
-      setSelectedSupplier(selectedProduct.supplierId || "");
       setSelectedWarehouse(selectedProduct.defaultWarehouseId || "");
     } else {
       // Reset form to default values for adding a new product
@@ -132,7 +129,6 @@ export default function AddProductDialog({
         reorderQuantity: undefined,
       });
       setSelectedCategory("");
-      setSelectedSupplier("");
       setSelectedWarehouse("");
     }
   }, [selectedProduct, openProductDialog, reset]);
@@ -148,7 +144,6 @@ export default function AddProductDialog({
       if (!selectedProduct) {
         const newProduct: Product = {
           id: Date.now().toString(),
-          supplierId: selectedSupplier,
           name: data.productName,
           price: 0, // Price comes from variants/purchase orders
           quantity: 0, // Quantity comes from purchase orders
@@ -186,7 +181,6 @@ export default function AddProductDialog({
         const productToUpdate: Product = {
           id: selectedProduct.id,
           createdAt: new Date(selectedProduct.createdAt), // Convert string to Date
-          supplierId: selectedSupplier,
           name: data.productName,
           price: selectedProduct.price, // Keep existing price (from variants)
           quantity: selectedProduct.quantity, // Keep existing quantity (from stock)
@@ -359,24 +353,6 @@ export default function AddProductDialog({
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="supplier" className="block text-sm font-medium">
-                  Supplier
-                </label>
-                <select
-                  id="supplier"
-                  value={selectedSupplier}
-                  onChange={(e) => setSelectedSupplier(e.target.value)}
-                  className="mt-1 h-11 block w-full rounded-md border-gray-300 shadow-md focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
-                  <option value="">Select Supplier</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name}
                     </option>
                   ))}
                 </select>

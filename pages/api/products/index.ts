@@ -7,7 +7,6 @@ const prisma = new PrismaClient();
 export const productInclude = {
   variants: true,
   category: true,
-  supplier: true,
   defaultWarehouse: true,
 };
 
@@ -47,7 +46,6 @@ export const buildProductResponse = (product: any) => {
     status: product.status,
     userId: product.userId,
     categoryId: product.categoryId,
-    supplierId: product.supplierId,
     description: product.description,
     imageUrl: product.imageUrl,
     createdAt:
@@ -55,7 +53,6 @@ export const buildProductResponse = (product: any) => {
         ? product.createdAt.toISOString()
         : product.createdAt,
     category: product.category?.name || "Unknown",
-    supplier: product.supplier?.name || "Unknown",
     hasVariants: product.hasVariants,
     minStock: product.minStock,
     maxStock: product.maxStock,
@@ -120,7 +117,6 @@ export default async function handler(
           sku,
           status,
           categoryId,
-          supplierId,
           description,
           imageUrl,
           minStock,
@@ -146,7 +142,6 @@ export default async function handler(
             status: status || "Stock Out",
             userId,
             categoryId,
-            supplierId,
             description,
             imageUrl,
             hasVariants: false,
@@ -211,7 +206,6 @@ export default async function handler(
           sku,
           status,
           categoryId,
-          supplierId,
           description,
           imageUrl,
           minStock,
@@ -229,7 +223,6 @@ export default async function handler(
             sku,
             status,
             categoryId,
-            supplierId,
             description,
             imageUrl,
             minStock: toNullableNumber(minStock),

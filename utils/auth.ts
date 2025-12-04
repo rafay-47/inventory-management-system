@@ -2,7 +2,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { PrismaClient, User as PrismaUser } from "@prisma/client";
-import Cookies from "js-cookie"; // Import js-cookie
 import { NextApiRequest, NextApiResponse } from "next";
 
 const prisma = new PrismaClient();
@@ -84,27 +83,22 @@ export const getSessionServer = async (
 
 export const getSessionClient = async (): Promise<User | null> => {
   try {
-    const token = Cookies.get("session_id");
-    // Debug log - only log in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log("Session ID from cookies:", token);
-    }
-    if (!token) {
-      return null;
-    }
-
-    // On client side, we'll make an API call to verify the token
-    // This avoids using the JWT library on the client side
+    // Don't check for cookie client-side since it's httpOnly and can't be read by JS
+    // Instead, directly call the session API which can access the httpOnly cookie
     const response = await fetch('/api/auth/session', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include', // Include cookies
+      credentials: 'include', // Include cookies - this sends the httpOnly cookie to the server
     });
 
     if (response.ok) {
       const user = await response.json();
+      // Debug log - only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Session user from API:", user);
+      }
       return user;
     }
 

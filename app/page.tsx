@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useState, useMemo } from "react";
 import Loading from "../components/Loading";
 import { useAuth } from "./authContext";
 import Home from "./Home";
@@ -14,23 +14,26 @@ interface PageProps {
 
 const PageContent: React.FC = () => {
   const router = useRouter();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isLoggedIn) {
+    // Only redirect after auth check is complete
+    if (!isLoading && !isLoggedIn) {
       router.push("/login");
     }
-  }, [isLoggedIn, router]);
+  }, [isLoggedIn, isLoading, router]);
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return <Loading />;
+  }
 
   // Memoize the component to prevent unnecessary re-renders
-  const content = useMemo(() => {
-    if (isLoggedIn) {
-      return <Home />;
-    }
-    return <Login />;
-  }, [isLoggedIn]);
-
-  return content;
+  if (isLoggedIn) {
+    return <Home />;
+  }
+  
+  return <Login />;
 };
 
 const Page: React.FC<PageProps> = ({ params, searchParams }) => {

@@ -11,9 +11,7 @@ export interface Product {
   createdAt: Date;
   userId: string;
   categoryId: string;
-  supplierId: string;
   category?: string;
-  supplier?: string;
   hasVariants?: boolean;
   imageUrl?: string;
   description?: string;

@@ -89,17 +89,18 @@ export default async function login(req: NextApiRequest, res: NextApiResponse) {
         .json({ error: "Failed to generate session token" });
     }
 
-    // Determine if the connection is secure
+    // Determine if the connection is secure (production)
+    const isProduction = process.env.NODE_ENV === "production";
     const isSecure =
-      req.headers["x-forwarded-proto"] === "https" ||
-      process.env.NODE_ENV !== "development";
+      req.headers["x-forwarded-proto"] === "https" || isProduction;
 
     const cookies = new Cookies(req, res, { secure: isSecure });
     cookies.set("session_id", token, {
       httpOnly: true,
       secure: isSecure, // Dynamically set secure flag
-      sameSite: "none", // Allow cross-origin cookies
+      sameSite: isProduction ? "none" : "lax", // Use 'lax' for development, 'none' for cross-origin in production
       maxAge: 60 * 60 * 1000, // 1 hour
+      path: "/", // Ensure cookie is available for all paths
     });
 
     console.log("Login successful, session ID set:", token);

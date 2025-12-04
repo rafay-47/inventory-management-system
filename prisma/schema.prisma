@@ -100,7 +100,6 @@ model Product {
   name                  String
   sku                   String                 @unique
   status                String
-  supplierId            String
   userId                String
   defaultWarehouseId    String?
   minStock              Int?
@@ -111,7 +110,6 @@ model Product {
   imageUrl              String?
   description           String?
   category              Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  supplier              Supplier               @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   defaultWarehouse      Warehouse?             @relation("ProductDefaultWarehouse", fields: [defaultWarehouseId], references: [id], onDelete: SetNull)
   stockAllocations      StockAllocation[]
@@ -126,7 +124,6 @@ model Product {
 
   @@index([userId])
   @@index([categoryId])
-  @@index([supplierId])
   @@index([defaultWarehouseId])
 }
 
@@ -469,7 +466,6 @@ model Supplier {
   notes          String?
   userId         String
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  products       Product[]
   purchaseOrders PurchaseOrder[]
 
   @@index([userId])

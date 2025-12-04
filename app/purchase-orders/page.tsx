@@ -29,6 +29,7 @@ import { useAuth } from "@/app/authContext";
 import Loading from "@/components/Loading";
 import axiosInstance from "@/utils/axiosInstance";
 import { Check, Plus, Trash2 } from "lucide-react";
+import AddSupplierDialog from "@/app/AppTable/ProductDialog/AddSupplierDialog";
 
 interface PurchaseOrderItem {
   id?: string;
@@ -343,7 +344,10 @@ export default function PurchaseOrdersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Supplier</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Supplier</Label>
+                    <AddSupplierDialog />
+                  </div>
                   <Select
                     value={purchaseForm.supplierId}
                     onValueChange={(val) =>

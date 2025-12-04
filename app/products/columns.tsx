@@ -221,14 +221,6 @@ export const columns: ColumnDef<Product>[] = [
     },
   },
   {
-    accessorKey: "supplier",
-    header: "Supplier",
-    cell: ({ row }) => {
-      const supplierName = row.original.supplier; // Display supplier name
-      return <span>{supplierName || "Unknown"}</span>;
-    },
-  },
-  {
     id: "qrCode",
     header: "QR Code",
     cell: ({ row }) => {
@@ -240,7 +232,6 @@ export const columns: ColumnDef<Product>[] = [
         sku: product.sku,
         status: product.status,
         category: product.category,
-        supplier: product.supplier,
       });
 
       return (

@@ -26,7 +26,6 @@ const AppTable = React.memo(() => {
   // State for selected filters
   const [selectedCategory, setSelectedCategory] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
 
   // Memoize the loadProducts callback to prevent unnecessary re-renders
   const handleLoadProducts = useCallback(() => {
@@ -82,8 +81,6 @@ const AppTable = React.memo(() => {
           setSelectedCategory={setSelectedCategory}
           selectedStatuses={selectedStatuses}
           setSelectedStatuses={setSelectedStatuses}
-          selectedSuppliers={selectedSuppliers}
-          setSelectedSuppliers={setSelectedSuppliers}
           userId={user.id}
         />
 
@@ -98,7 +95,6 @@ const AppTable = React.memo(() => {
           setPagination={setPagination}
           selectedCategory={selectedCategory}
           selectedStatuses={selectedStatuses}
-          selectedSuppliers={selectedSuppliers}
         />
       </CardContent>
     </Card>

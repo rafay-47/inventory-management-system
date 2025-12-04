@@ -14,10 +14,8 @@ import { IoClose } from "react-icons/io5";
 import * as XLSX from 'xlsx';
 import { CategoryDropDown } from "./AppTable/dropdowns/CategoryDropDown";
 import { StatusDropDown } from "./AppTable/dropdowns/StatusDropDown";
-import { SuppliersDropDown } from "./AppTable/dropdowns/SupplierDropDown";
 import AddCategoryDialog from "./AppTable/ProductDialog/AddCategoryDialog";
 import AddProductDialog from "./AppTable/ProductDialog/AddProductDialog";
-import AddSupplierDialog from "./AppTable/ProductDialog/AddSupplierDialog";
 import AddWarehouseDialog from "./AppTable/ProductDialog/AddWarehouseDialog";
 import PaginationSelection, {
   PaginationType,
@@ -29,8 +27,6 @@ type FiltersAndActionsProps = {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string[]>>;
   selectedStatuses: string[];
   setSelectedStatuses: React.Dispatch<React.SetStateAction<string[]>>;
-  selectedSuppliers: string[];
-  setSelectedSuppliers: React.Dispatch<React.SetStateAction<string[]>>;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   pagination: PaginationType;
@@ -46,8 +42,6 @@ export default function FiltersAndActions({
   setSelectedCategory,
   selectedStatuses,
   setSelectedStatuses,
-  selectedSuppliers,
-  setSelectedSuppliers,
   searchTerm,
   setSearchTerm,
   pagination,
@@ -65,13 +59,10 @@ export default function FiltersAndActions({
       const categoryMatch =
         selectedCategory.length === 0 ||
         selectedCategory.includes(product.categoryId ?? "");
-      const supplierMatch =
-        selectedSuppliers.length === 0 ||
-        selectedSuppliers.includes(product.supplierId ?? "");
       const statusMatch =
         selectedStatuses.length === 0 ||
         selectedStatuses.includes(product.status ?? "");
-      return searchMatch && categoryMatch && supplierMatch && statusMatch;
+      return searchMatch && categoryMatch && statusMatch;
     });
   };
 
@@ -95,7 +86,6 @@ export default function FiltersAndActions({
         'Quantity': product.quantity,
         'Status': product.status,
         'Category': product.category || 'Unknown',
-        'Supplier': product.supplier || 'Unknown',
         'Created Date': new Date(product.createdAt).toLocaleDateString(),
       }));
 
@@ -143,7 +133,6 @@ export default function FiltersAndActions({
         'Quantity': product.quantity,
         'Status': product.status,
         'Category': product.category || 'Unknown',
-        'Supplier': product.supplier || 'Unknown',
         'Created Date': new Date(product.createdAt).toLocaleDateString(),
       }));
 
@@ -159,7 +148,6 @@ export default function FiltersAndActions({
         { wch: 10 }, // Quantity
         { wch: 12 }, // Status
         { wch: 15 }, // Category
-        { wch: 15 }, // Supplier
         { wch: 12 }, // Created Date
       ];
       ws['!cols'] = colWidths;
@@ -211,8 +199,6 @@ export default function FiltersAndActions({
         setSelectedStatuses={setSelectedStatuses}
         selectedCategories={selectedCategory}
         setSelectedCategories={setSelectedCategory}
-        selectedSuppliers={selectedSuppliers}
-        setSelectedSuppliers={setSelectedSuppliers}
       />
 
       {/* Export Section */}
@@ -248,7 +234,6 @@ export default function FiltersAndActions({
         <div className="flex gap-4">
           <AddProductDialog allProducts={allProducts} userId={userId} />
           <AddCategoryDialog />
-          <AddSupplierDialog />
           <AddWarehouseDialog />
         </div>
 
@@ -270,10 +255,6 @@ export default function FiltersAndActions({
             selectedStatuses={selectedStatuses}
             setSelectedStatuses={setSelectedStatuses}
           />
-          <SuppliersDropDown
-            selectedSuppliers={selectedSuppliers}
-            setSelectedSuppliers={setSelectedSuppliers}
-          />
         </div>
       </div>
 
@@ -283,7 +264,6 @@ export default function FiltersAndActions({
         <div className="flex flex-col gap-4">
           <AddProductDialog allProducts={allProducts} userId={userId} />
           <AddCategoryDialog />
-          <AddSupplierDialog />
           <AddWarehouseDialog />
         </div>
 
@@ -297,10 +277,6 @@ export default function FiltersAndActions({
             selectedStatuses={selectedStatuses}
             setSelectedStatuses={setSelectedStatuses}
           />
-          <SuppliersDropDown
-            selectedSuppliers={selectedSuppliers}
-            setSelectedSuppliers={setSelectedSuppliers}
-          />
         </div>
       </div>
     </div>
@@ -313,15 +289,11 @@ function FilterArea({
   setSelectedStatuses,
   selectedCategories,
   setSelectedCategories,
-  selectedSuppliers,
-  setSelectedSuppliers,
 }: {
   selectedStatuses: string[];
   setSelectedStatuses: React.Dispatch<React.SetStateAction<string[]>>;
   selectedCategories: string[];
   setSelectedCategories: React.Dispatch<React.SetStateAction<string[]>>;
-  selectedSuppliers: string[];
-  setSelectedSuppliers: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   return (
     <div className="flex flex-col sm:flex-row gap-3 poppins">
@@ -363,34 +335,13 @@ function FilterArea({
         </div>
       )}
 
-      {/* Supplier Filter */}
-      {selectedSuppliers.length > 0 && (
-        <div className="border-dashed border rounded-sm p-1 flex gap-2 items-center px-2 text-sm">
-          <span className="text-gray-600">Supplier</span>
-          <Separator orientation="vertical" />
-          <div className="flex gap-2 items-center">
-            {selectedSuppliers.length < 3 ? (
-              selectedSuppliers.map((supplier, index) => (
-                <Badge key={index} variant={"secondary"}>
-                  {supplier}
-                </Badge>
-              ))
-            ) : (
-              <Badge variant={"secondary"}>3 Selected</Badge>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Reset Filters Button */}
       {(selectedStatuses.length > 0 ||
-        selectedCategories.length > 0 ||
-        selectedSuppliers.length > 0) && (
+        selectedCategories.length > 0) && (
           <Button
             onClick={() => {
               setSelectedStatuses([]);
               setSelectedCategories([]);
-              setSelectedSuppliers([]);
             }}
             variant={"ghost"}
             className="p-1 px-2"

@@ -1,8 +1,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-//import axios from "axios";
-import Cookies from "js-cookie";
 import axiosInstance from "@/utils/axiosInstance";
 import { getSessionClient } from "@/utils/auth";
 
@@ -14,6 +12,7 @@ interface User {
 
 interface AuthContextType {
   isLoggedIn: boolean;
+  isLoading: boolean;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -25,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -55,18 +55,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const checkSession = async () => {
-      const sessionId = Cookies.get("session_id");
-      // Debug log - only log in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log("Session ID from cookies:", sessionId);
-      }
-      if (sessionId) {
+      // Don't rely on reading the cookie client-side since it's httpOnly
+      // Instead, directly call the session API which can access the httpOnly cookie
+      try {
         const session = await getSessionClient();
         // Debug log - only log in development
         if (process.env.NODE_ENV === 'development') {
           console.log("Session from getSessionClient:", session);
         }
-        if (session) {
+        if (session && session.id) {
           setIsLoggedIn(true);
           setUser({
             id: session.id,
@@ -80,13 +77,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           // Set necessary attributes in local storage
           localStorage.setItem("isAuth", "true");
           localStorage.setItem("isLoggedIn", "true");
-          localStorage.setItem("token", sessionId);
           localStorage.setItem("getSession", JSON.stringify(session));
         } else {
           clearAuthData();
         }
-      } else {
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Error checking session:", error);
+        }
         clearAuthData();
+      } finally {
+        setIsLoading(false); // Session check complete
       }
     };
 
@@ -107,22 +108,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         name: result.userName,
         email: result.userEmail,
       });
-      Cookies.set("session_id", result.sessionId);
+      // Note: The server sets the session_id as an httpOnly cookie, so we don't need to set it client-side
       // Debug log - only log in development
       if (process.env.NODE_ENV === 'development') {
-        console.log("Login successful, session ID set:", result.sessionId);
-
-        // Debug log to verify cookie
-        console.log(
-          "Session ID from Cookies after login:",
-          Cookies.get("session_id")
-        );
+        console.log("Login successful, user:", result);
       }
 
       // Set necessary attributes in local storage
       localStorage.setItem("isAuth", "true");
       localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("token", result.sessionId);
       localStorage.setItem("getSession", JSON.stringify(result));
     } catch (error) {
       console.error("Error logging in:", error);
@@ -147,16 +141,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const clearAuthData = () => {
     setIsLoggedIn(false);
     setUser(null);
-    Cookies.remove("session_id");
+    // Note: The session_id cookie is httpOnly, so it will be cleared by the logout API on the server
     // Clear attributes from local storage
     localStorage.setItem("isAuth", "false");
     localStorage.setItem("isLoggedIn", "false");
-    localStorage.setItem("token", "");
     localStorage.setItem("getSession", "");
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
