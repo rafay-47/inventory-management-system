@@ -24,7 +24,7 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -48,9 +48,16 @@ import { useProductStore } from "../useProductStore";
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 
 export default function BusinessInsightsPage() {
-  const { allProducts } = useProductStore();
+  const { allProducts, loadProducts } = useProductStore();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Load products on mount if user is logged in
+  useEffect(() => {
+    if (user) {
+      loadProducts();
+    }
+  }, [user, loadProducts]);
 
   // Calculate analytics data with corrected calculations
   const analyticsData = useMemo(() => {
