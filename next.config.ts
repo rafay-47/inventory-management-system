@@ -6,7 +6,7 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 const remotePatterns = [
   {
-    protocol: "https",
+    protocol: "https" as const,
     hostname: "**.supabase.co",
     pathname: "/storage/v1/object/public/**",
   },
@@ -14,7 +14,7 @@ const remotePatterns = [
 
 if (supabaseHostname && supabaseHostname !== "supabase.co") {
   remotePatterns.unshift({
-    protocol: "https",
+    protocol: "https" as const,
     hostname: supabaseHostname,
     pathname: "/storage/v1/object/public/**",
   });

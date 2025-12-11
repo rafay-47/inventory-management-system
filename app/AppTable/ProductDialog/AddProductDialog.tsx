@@ -152,12 +152,12 @@ export default function AddProductDialog({
           categoryId: selectedCategory,
           createdAt: new Date(),
           userId: userId,
-          description: data.description ?? null,
-          minStock: data.minStock ?? null,
-          maxStock: data.maxStock ?? null,
-          reorderPoint: data.reorderPoint ?? null,
-          reorderQuantity: data.reorderQuantity ?? null,
-          defaultWarehouseId: selectedWarehouse || null,
+          description: data.description ?? undefined,
+          minStock: data.minStock ?? undefined,
+          maxStock: data.maxStock ?? undefined,
+          reorderPoint: data.reorderPoint ?? undefined,
+          reorderQuantity: data.reorderQuantity ?? undefined,
+          defaultWarehouseId: selectedWarehouse || undefined,
         };
 
         const result = await addProduct(newProduct);
@@ -188,12 +188,12 @@ export default function AddProductDialog({
           status,
           categoryId: selectedCategory,
           userId: selectedProduct.userId,
-          description: data.description ?? null,
-          minStock: data.minStock ?? null,
-          maxStock: data.maxStock ?? null,
-          reorderPoint: data.reorderPoint ?? null,
-          reorderQuantity: data.reorderQuantity ?? null,
-          defaultWarehouseId: selectedWarehouse || null,
+          description: data.description ?? undefined,
+          minStock: data.minStock ?? undefined,
+          maxStock: data.maxStock ?? undefined,
+          reorderPoint: data.reorderPoint ?? undefined,
+          reorderQuantity: data.reorderQuantity ?? undefined,
+          defaultWarehouseId: selectedWarehouse || undefined,
         };
 
         const result = await updateProduct(productToUpdate);

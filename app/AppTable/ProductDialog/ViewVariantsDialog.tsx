@@ -160,7 +160,7 @@ export default function ViewVariantsDialog({
               <div className="text-center py-8">Loading variants...</div>
             ) : variants.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No variants found. Click "Add Variant" to create one.
+                No variants found. Click &ldquo;Add Variant&rdquo; to create one.
               </div>
             ) : (
               <div className="border rounded-lg">
@@ -273,7 +273,7 @@ export default function ViewVariantsDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the variant "{selectedVariant?.name}". This action cannot be undone.
+              This will permanently delete the variant &ldquo;{selectedVariant?.name}&rdquo;. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

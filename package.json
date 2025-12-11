@@ -10,7 +10,8 @@
     "lint": "next lint",
     "prisma": "prisma",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^5.1.6",
@@ -76,5 +77,8 @@
     "prisma": "^6.4.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
   }
 }

@@ -12,6 +12,7 @@ export interface Product {
   userId: string;
   categoryId: string;
   category?: string;
+  supplier?: string;
   hasVariants?: boolean;
   imageUrl?: string;
   description?: string;

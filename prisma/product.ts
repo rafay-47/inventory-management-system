@@ -10,7 +10,6 @@ export const createProduct = async (data: {
   status: string;
   userId: string;
   categoryId: string;
-  supplierId: string;
   createdAt: Date;
 }) => {
   return prisma.product.create({
@@ -33,7 +32,6 @@ export const updateProduct = async (
     quantity?: number;
     status?: string;
     categoryId?: string;
-    supplierId?: string;
   }
 ) => {
   return prisma.product.update({

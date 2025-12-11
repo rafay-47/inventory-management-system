@@ -76,7 +76,6 @@ export default function ProductDetailPage() {
     description: "",
     status: "Available",
     categoryId: "",
-    supplierId: "",
     imageUrl: "",
     defaultWarehouseId: "",
     minStock: "",
@@ -127,7 +126,6 @@ export default function ProductDetailPage() {
           description: currentProduct.description || "",
           status: currentProduct.status || "Available",
           categoryId: currentProduct.categoryId,
-          supplierId: currentProduct.supplierId,
           imageUrl: currentProduct.imageUrl || "",
           defaultWarehouseId: currentProduct.defaultWarehouseId || "",
           minStock:
@@ -203,7 +201,6 @@ export default function ProductDetailPage() {
         description: formData.description,
         status: formData.status,
         categoryId: formData.categoryId,
-        supplierId: formData.supplierId,
         imageUrl: formData.imageUrl,
         defaultWarehouseId: formData.defaultWarehouseId || null,
         minStock: formData.minStock === "" ? null : Number(formData.minStock),
@@ -471,27 +468,6 @@ export default function ProductDetailPage() {
                       </select>
                     ) : (
                       <p className="text-sm font-medium">{product.category}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Supplier</Label>
-                    {editMode ? (
-                      <select
-                        className="w-full p-2 border rounded-md"
-                        value={formData.supplierId}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                          setFormData({ ...formData, supplierId: e.target.value })
-                        }
-                      >
-                        {suppliers.map((sup) => (
-                          <option key={sup.id} value={sup.id}>
-                            {sup.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <p className="text-sm font-medium">{product.supplier}</p>
                     )}
                   </div>
 
@@ -979,7 +955,7 @@ export default function ProductDetailPage() {
                   </div>
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
-                    <p>No variants found. Click "Add Variant" to create one.</p>
+                    <p>No variants found. Click &ldquo;Add Variant&rdquo; to create one.</p>
                   </div>
                 )}
               </CardContent>
@@ -993,8 +969,7 @@ export default function ProductDetailPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete the variant "{variantToDelete?.name}
-                ". This action cannot be undone.
+                This will permanently delete the variant &ldquo;{variantToDelete?.name}&rdquo;. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
