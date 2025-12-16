@@ -6,7 +6,7 @@ const axiosInstance = axios.create({
     typeof window !== "undefined"
       ? `${window.location.origin}/api` // Use current domain dynamically
       : process.env.NODE_ENV === "production"
-      ? "https://stockly-inventory.vercel.app/api" // Fallback for SSR
+      ? "https://inventory-management-system-two-tan.vercel.app/api" // Fallback for SSR
       : "http://localhost:3000/api", // Localhost for development
   headers: {
     "Content-Type": "application/json",

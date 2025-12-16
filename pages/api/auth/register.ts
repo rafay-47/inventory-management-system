@@ -21,6 +21,7 @@ export default async function handler(
     "https://stockly-inventory-managment-nextjs-ovlrz6kdv.vercel.app",
     "https://stockly-inventory-managment-nextjs-arnob-mahmuds-projects.vercel.app",
     "https://stockly-inventory-managment-n-git-cc3097-arnob-mahmuds-projects.vercel.app",
+    "https://inventory-management-system-two-tan.vercel.app",
     req.headers.origin,
   ];
   const origin = req.headers.origin;
