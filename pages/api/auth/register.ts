@@ -15,11 +15,40 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // CORS headers
+  const allowedOrigins = [
+    "https://stockly-inventory.vercel.app",
+    "https://stockly-inventory-managment-nextjs-ovlrz6kdv.vercel.app",
+    "https://stockly-inventory-managment-nextjs-arnob-mahmuds-projects.vercel.app",
+    "https://stockly-inventory-managment-n-git-cc3097-arnob-mahmuds-projects.vercel.app",
+    req.headers.origin,
+  ];
+  const origin = req.headers.origin;
+
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      "https://stockly-inventory.vercel.app"
+    );
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   try {
+    console.log("📝 Registration attempt:", { email: req.body?.email, hasPassword: !!req.body?.password });
+    
     const { name, email, password } = registerSchema.parse(req.body);
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -50,12 +79,16 @@ export default async function handler(
       },
     });
 
+    console.log("✅ User registered successfully:", createdUser.email);
     res.status(201).json({ id: createdUser.id, name: createdUser.name, email: createdUser.email });
   } catch (error) {
+    console.error("❌ Registration error:", error);
     if (error instanceof Error) {
       res.status(500).json({ error: error.message });
     } else {
       res.status(500).json({ error: "An unknown error occurred" });
     }
+  } finally {
+    await prisma.$disconnect();
   }
 }
