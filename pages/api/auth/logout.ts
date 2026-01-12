@@ -1,10 +1,15 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import Cookies from "cookies";
+import { getSessionServer } from "@/utils/auth";
+import { auditLogout } from "@/utils/auditLogger";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Get session to log user info before logout
+  const session = await getSessionServer(req, res);
+  
   // Determine if the connection is secure (production)
   const isProduction = process.env.NODE_ENV === "production";
   const isSecure =
@@ -20,6 +25,14 @@ export default async function handler(
     maxAge: 0, // Expire immediately
     path: "/",
   });
+
+  // Audit logout if session exists
+  if (session) {
+    await auditLogout(
+      { userId: session.id, userName: session.name, userEmail: session.email },
+      req
+    );
+  }
 
   return res.status(204).end();
 }

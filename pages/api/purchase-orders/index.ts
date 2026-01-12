@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
+import { hasPermission } from "@/middleware/roleMiddleware";
+import { auditCreate, createAuditLog } from "@/utils/auditLogger";
 
 const prisma = new PrismaClient();
 
@@ -57,8 +59,11 @@ export default async function handler(
   switch (method) {
     case "GET": {
       try {
+        const canRead = await hasPermission(userId, "purchaseOrders", "read");
+        if (!canRead) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to view purchase orders" });
+        }
         const purchaseOrders = await prisma.purchaseOrder.findMany({
-          where: { userId },
           include: {
             supplier: true,
             items: {
@@ -81,6 +86,10 @@ export default async function handler(
 
     case "POST": {
       try {
+        const canCreate = await hasPermission(userId, "purchaseOrders", "create");
+        if (!canCreate) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to create purchase orders" });
+        }
         const {
           orderNumber,
           supplierId,
@@ -150,9 +159,47 @@ export default async function handler(
           },
         });
 
+        // Audit log the purchase order creation
+        await auditCreate(
+          "PurchaseOrder",
+          {
+            id: created.id,
+            name: created.poNumber || `PO-${created.id.slice(0, 8)}`,
+            poNumber: created.poNumber,
+            supplierId: created.supplierId,
+            totalCost: created.totalCost,
+            itemCount: items?.length || 0,
+          },
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+          },
+          req
+        );
+
         return res.status(201).json(serializePurchaseOrder(created));
       } catch (error: any) {
         console.error("Error creating purchase order:", error);
+        
+        // Audit log failed creation
+        await createAuditLog(
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+            action: "CREATE",
+            entityType: "PurchaseOrder",
+            status: "error",
+            errorMessage: error.code === "P2002" ? "Purchase order number must be unique" : error.message,
+            metadata: {
+              orderNumber: req.body.orderNumber,
+              supplierId: req.body.supplierId,
+            },
+          },
+          req
+        );
+        
         if (error.code === "P2002") {
           return res
             .status(400)

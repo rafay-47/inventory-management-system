@@ -1,8 +1,8 @@
-
 import GlobalLoading from "@/components/GlobalLoading";
 import { Toaster } from "@/components/ui/toaster";
 import { Poppins } from "next/font/google";
 import localFont from "next/font/local";
+import Script from "next/script";
 import React, { Suspense } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -91,6 +91,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script
+          src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+          strategy="lazyOnload"
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >

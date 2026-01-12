@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
+import { hasPermission } from "@/middleware/roleMiddleware";
+import { auditCreate, auditUpdate, auditDelete, createAuditLog } from "@/utils/auditLogger";
 
 const prisma = new PrismaClient();
 
@@ -112,6 +114,15 @@ export default async function handler(
   switch (method) {
     case "POST":
       try {
+        // Check permission
+        const canCreate = await hasPermission(userId, "products", "create");
+        if (!canCreate) {
+          return res.status(403).json({
+            error: "Forbidden",
+            message: "You don't have permission to create products",
+          });
+        }
+
         const {
           name,
           sku,
@@ -158,6 +169,18 @@ export default async function handler(
           include: productInclude,
         });
 
+        // Audit log
+        await auditCreate(
+          "Product",
+          productWithRelations,
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+          },
+          req
+        );
+
         res.status(201).json(buildProductResponse(productWithRelations));
       } catch (error) {
         console.error("Error creating product:", error);
@@ -167,6 +190,15 @@ export default async function handler(
 
     case "GET":
       try {
+        // Check permission
+        const canRead = await hasPermission(userId, "products", "read");
+        if (!canRead) {
+          return res.status(403).json({
+            error: "Forbidden",
+            message: "You don't have permission to view products",
+          });
+        }
+
         const { id } = req.query;
 
         if (id && typeof id === "string") {
@@ -179,15 +211,10 @@ export default async function handler(
             return res.status(404).json({ error: "Product not found" });
           }
 
-          if (product.userId !== userId) {
-            return res.status(403).json({ error: "Forbidden" });
-          }
-
           return res.status(200).json(buildProductResponse(product));
         }
 
         const products = await prisma.product.findMany({
-          where: { userId },
           include: productInclude,
         });
 
@@ -200,6 +227,15 @@ export default async function handler(
 
     case "PUT":
       try {
+        // Check permission
+        const canUpdate = await hasPermission(userId, "products", "update");
+        if (!canUpdate) {
+          return res.status(403).json({
+            error: "Forbidden",
+            message: "You don't have permission to update products",
+          });
+        }
+
         const {
           id,
           name,
@@ -214,6 +250,12 @@ export default async function handler(
           reorderQuantity,
           defaultWarehouseId,
         } = req.body;
+
+        // Get old product state
+        const oldProduct = await prisma.product.findUnique({
+          where: { id },
+          include: productInclude,
+        });
 
         // Update product metadata only - price/quantity come from variants/transactions
         await prisma.product.update({
@@ -238,24 +280,100 @@ export default async function handler(
           include: productInclude,
         });
 
+        // Audit log the update
+        await auditUpdate(
+          "Product",
+          id,
+          name,
+          oldProduct,
+          productWithRelations,
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+          },
+          req
+        );
+
         res.status(200).json(buildProductResponse(productWithRelations));
       } catch (error) {
         console.error("Error updating product:", error);
+        
+        await createAuditLog(
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+            action: "UPDATE",
+            entityType: "Product",
+            entityId: req.body.id,
+            status: "error",
+            errorMessage: error instanceof Error ? error.message : "Failed to update product",
+          },
+          req
+        );
+        
         res.status(500).json({ error: "Failed to update product" });
       }
       break;
 
     case "DELETE":
       try {
+        // Check permission
+        const canDelete = await hasPermission(userId, "products", "delete");
+        if (!canDelete) {
+          return res.status(403).json({
+            error: "Forbidden",
+            message: "You don't have permission to delete products",
+          });
+        }
+
         const { id } = req.body;
+
+        // Get product before deletion
+        const product = await prisma.product.findUnique({
+          where: { id },
+          include: productInclude,
+        });
+
+        if (!product) {
+          return res.status(404).json({ error: "Product not found" });
+        }
 
         await prisma.product.delete({
           where: { id },
         });
 
+        // Audit log the deletion
+        await auditDelete(
+          "Product",
+          product,
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+          },
+          req
+        );
+
         res.status(204).end();
       } catch (error) {
         console.error("Error deleting product:", error);
+        
+        await createAuditLog(
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+            action: "DELETE",
+            entityType: "Product",
+            entityId: req.body.id,
+            status: "error",
+            errorMessage: error instanceof Error ? error.message : "Failed to delete product",
+          },
+          req
+        );
+        
         res.status(500).json({ error: "Failed to delete product" });
       }
       break;

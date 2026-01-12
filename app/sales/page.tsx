@@ -27,7 +27,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/app/authContext";
 import Loading from "@/components/Loading";
+import { Skeleton } from "@/components/ui/skeleton";
 import axiosInstance from "@/utils/axiosInstance";
+import { useRouter } from "next/navigation";
+import { FileText } from "lucide-react";
 
 interface SalesTransactionRecord {
   id: string;
@@ -83,7 +86,8 @@ const formatDate = (value: string | null) =>
   value ? new Date(value).toLocaleDateString() : "—";
 
 export default function SalesPage() {
-  const { isLoggedIn } = useAuth();
+  const router = useRouter();
+  const { isLoggedIn, isAdmin } = useAuth();
   const { allProducts, loadProducts } = useProductStore();
   const { toast } = useToast();
 
@@ -138,14 +142,28 @@ export default function SalesPage() {
   }
 
   const handleAddSalesTransaction = async () => {
+    // Auto-calculate total amount for non-admin users
+    let finalTotalAmount = salesForm.totalAmount;
+    if (!isAdmin()) {
+      const selectedProduct = allProducts.find(
+        (product) => product.id === salesForm.productId
+      );
+      if (selectedProduct) {
+        const quantity = parseFloat(salesForm.quantity) || 1;
+        const price = selectedProduct.price || 0;
+        finalTotalAmount = (quantity * price).toString();
+      }
+    }
+
     if (
       !salesForm.customerName ||
       !salesForm.productId ||
-      !salesForm.totalAmount
+      (!isAdmin() && !finalTotalAmount) ||
+      (isAdmin() && !salesForm.totalAmount)
     ) {
       toast({
         title: "Missing information",
-        description: "Customer, product, and total amount are required.",
+        description: "Customer and product are required.",
         variant: "destructive",
       });
       return;
@@ -166,7 +184,7 @@ export default function SalesPage() {
         saleDate: salesForm.saleDate,
         channel: salesForm.channel,
         quantity: salesForm.quantity,
-        totalAmount: salesForm.totalAmount,
+        totalAmount: finalTotalAmount,
         notes: salesForm.notes,
       });
 
@@ -179,6 +197,16 @@ export default function SalesPage() {
       toast({
         title: "Sale recorded",
         description: `${response.data.productName} sold to ${response.data.customerName}. Stock updated.`,
+        action: response.data.id ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleGenerateInvoice(response.data.id)}
+          >
+            <FileText className="w-4 h-4 mr-1" />
+            Create Invoice
+          </Button>
+        ) : undefined,
       });
     } catch (error: any) {
       toast({
@@ -188,6 +216,23 @@ export default function SalesPage() {
       });
     } finally {
       setSavingSale(false);
+    }
+  };
+
+  const handleGenerateInvoice = async (orderId: string) => {
+    try {
+      await axiosInstance.post("/invoices", { orderId });
+      toast({
+        title: "Invoice created",
+        description: "Invoice has been generated successfully",
+      });
+      router.push("/invoices");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || "Failed to create invoice",
+        variant: "destructive",
+      });
     }
   };
 
@@ -202,35 +247,47 @@ export default function SalesPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Total Revenue</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-3xl font-semibold">
-                {formatCurrency(salesSummary.totalRevenue)}
-              </p>
-              <p className="text-sm text-muted-foreground">All sales transactions</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Units Sold</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-3xl font-semibold">{salesSummary.totalUnits}</p>
-              <p className="text-sm text-muted-foreground">Total quantity sold</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Unique Customers</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-3xl font-semibold">{salesSummary.uniqueCustomers}</p>
-              <p className="text-sm text-muted-foreground">Customer count</p>
-            </CardContent>
-          </Card>
+          {salesLoading ? (
+            <>
+              {isAdmin() && <Skeleton className="h-32" />}
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </>
+          ) : (
+            <>
+              {isAdmin() && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Total Revenue</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p className="text-3xl font-semibold">
+                      {formatCurrency(salesSummary.totalRevenue)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">All sales transactions</p>
+                  </CardContent>
+                </Card>
+              )}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Units Sold</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-3xl font-semibold">{salesSummary.totalUnits}</p>
+                  <p className="text-sm text-muted-foreground">Total quantity sold</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Unique Customers</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-3xl font-semibold">{salesSummary.uniqueCustomers}</p>
+                  <p className="text-sm text-muted-foreground">Customer count</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -374,19 +431,21 @@ export default function SalesPage() {
                   placeholder="1"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Total Amount</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={salesForm.totalAmount}
-                  onChange={(e) =>
-                    setSalesForm({ ...salesForm, totalAmount: e.target.value })
-                  }
-                  placeholder="149.99"
-                />
-              </div>
+              {isAdmin() && (
+                <div className="space-y-2">
+                  <Label>Total Amount</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={salesForm.totalAmount}
+                    onChange={(e) =>
+                      setSalesForm({ ...salesForm, totalAmount: e.target.value })
+                    }
+                    placeholder="149.99"
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea
@@ -413,9 +472,11 @@ export default function SalesPage() {
             </CardHeader>
             <CardContent>
               {salesLoading ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading sales transactions...
-                </p>
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} className="h-16" />
+                  ))}
+                </div>
               ) : salesTransactions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No sales recorded yet. Use the form to add transactions as they occur.
@@ -428,7 +489,8 @@ export default function SalesPage() {
                       <TableHead>Product</TableHead>
                       <TableHead>Channel</TableHead>
                       <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
+                      {isAdmin() && <TableHead className="text-right">Total</TableHead>}
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -448,8 +510,20 @@ export default function SalesPage() {
                           <Badge variant="outline">{sale.channel}</Badge>
                         </TableCell>
                         <TableCell>{formatDate(sale.saleDate)}</TableCell>
+                        {isAdmin() && (
+                          <TableCell className="text-right">
+                            {formatCurrency(sale.totalAmount || 0)}
+                          </TableCell>
+                        )}
                         <TableCell className="text-right">
-                          {formatCurrency(sale.totalAmount || 0)}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleGenerateInvoice(sale.id)}
+                          >
+                            <FileText className="w-4 h-4 mr-1" />
+                            Invoice
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

@@ -493,6 +493,7 @@ model User {
   integrations          IntegrationConnection[]
   roles                 UserRole[]
   userActions           UserAction[]
+  auditLogs             AuditLog[]
 }
 
 model UserAction {
@@ -516,4 +517,30 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  userName    String?
+  userEmail   String?
+  action      String   // e.g., CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  entityType  String?  // e.g., Product, Category, Supplier, Order, etc.
+  entityId    String?
+  entityName  String?  // Human-readable name of the entity
+  oldValues   Json?    // Previous state (for updates/deletes)
+  newValues   Json?    // New state (for creates/updates)
+  ipAddress   String?
+  userAgent   String?
+  status      String   @default("success") // success, failed, error
+  errorMessage String?
+  metadata    Json?    // Additional contextual information
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@index([status])
 }

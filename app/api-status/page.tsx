@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { FiActivity, FiAlertCircle, FiCheckCircle, FiDatabase, FiPackage, FiRefreshCw, FiServer, FiUsers, FiXCircle } from "react-icons/fi";
@@ -183,13 +184,18 @@ export default function ApiStatusPage() {
   if (isLoading) {
     return (
       <AuthenticatedLayout>
-        <div className="container mx-auto p-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="flex items-center space-x-2">
-              <FiRefreshCw className="h-6 w-6 animate-spin" />
-              <span>Loading system status...</span>
-            </div>
+        <div className="container mx-auto p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-12 w-64" />
+            <Skeleton className="h-10 w-32" />
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </div>
+          <Skeleton className="h-96" />
         </div>
       </AuthenticatedLayout>
     );

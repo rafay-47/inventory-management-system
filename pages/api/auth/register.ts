@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { getSessionServer } from "@/utils/auth";
 
 const prisma = new PrismaClient();
 
@@ -9,6 +10,7 @@ const registerSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6),
+  role: z.enum(["salesperson", "admin"]).optional(),
 });
 
 export default async function handler(
@@ -47,10 +49,37 @@ export default async function handler(
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
+  // Check if user is authenticated and is admin (required for creating users)
+  const session = await getSessionServer(req, res);
+  
+  if (!session) {
+    return res.status(401).json({ error: "Unauthorized: Admin access required to create users" });
+  }
+
+  // Verify admin role
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.id },
+    include: {
+      roles: {
+        include: {
+          role: true,
+        },
+      },
+    },
+  });
+
+  const isAdmin = currentUser?.roles.some(
+    (userRole: any) => userRole.role.name === "admin"
+  );
+
+  if (!isAdmin) {
+    return res.status(403).json({ error: "Forbidden: Admin access required to create users" });
+  }
+
   try {
-    console.log("📝 Registration attempt:", { email: req.body?.email, hasPassword: !!req.body?.password });
+    console.log("📝 Registration attempt by admin:", { email: req.body?.email, hasPassword: !!req.body?.password });
     
-    const { name, email, password } = registerSchema.parse(req.body);
+    const { name, email, password, role = "salesperson" } = registerSchema.parse(req.body);
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -80,7 +109,27 @@ export default async function handler(
       },
     });
 
-    console.log("✅ User registered successfully:", createdUser.email);
+    // Assign role to new user (from request or default salesperson)
+    try {
+      const assignedRole = await prisma.role.findUnique({
+        where: { name: role },
+      });
+
+      if (assignedRole) {
+        await prisma.userRole.create({
+          data: {
+            userId: createdUser.id,
+            roleId: assignedRole.id,
+          },
+        });
+        console.log(`✅ Assigned ${role} role to new user`);
+      }
+    } catch (roleError) {
+      console.warn("⚠️ Could not assign role to new user:", roleError);
+      // Don't fail registration if role assignment fails
+    }
+
+    console.log("✅ User registered successfully by admin:", createdUser.email);
     res.status(201).json({ id: createdUser.id, name: createdUser.name, email: createdUser.email });
   } catch (error) {
     console.error("❌ Registration error:", error);

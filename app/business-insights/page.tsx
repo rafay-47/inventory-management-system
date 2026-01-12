@@ -8,6 +8,7 @@ import { ChartCard } from "@/components/ui/chart-card";
 import { ForecastingCard } from "@/components/ui/forecasting-card";
 import { QRCodeComponent } from "@/components/ui/qr-code";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   Activity,
@@ -48,7 +49,7 @@ import { useProductStore } from "../useProductStore";
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 
 export default function BusinessInsightsPage() {
-  const { allProducts, loadProducts } = useProductStore();
+  const { allProducts, loadProducts, isLoading } = useProductStore();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -320,38 +321,58 @@ export default function BusinessInsightsPage() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <AnalyticsCard
-            title="Total Products"
-            value={analyticsData.totalProducts}
-            icon={Package}
-            iconColor="text-blue-600"
-            description="Products in inventory"
-          />
-          <AnalyticsCard
-            title="Total Value"
-            value={`$${analyticsData.totalValue.toLocaleString()}`}
-            icon={DollarSign}
-            iconColor="text-green-600"
-            description="Total inventory value"
-          />
-          <AnalyticsCard
-            title="Low Stock Items"
-            value={analyticsData.lowStockItems}
-            icon={AlertTriangle}
-            iconColor="text-orange-600"
-            description="Items with quantity <= 20"
-          />
-          <AnalyticsCard
-            title="Out of Stock"
-            value={analyticsData.outOfStockItems}
-            icon={ShoppingCart}
-            iconColor="text-red-600"
-            description="Items with zero quantity"
-          />
+          {isLoading ? (
+            <>
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </>
+          ) : (
+            <>
+              <AnalyticsCard
+                title="Total Products"
+                value={analyticsData.totalProducts}
+                icon={Package}
+                iconColor="text-blue-600"
+                description="Products in inventory"
+              />
+              <AnalyticsCard
+                title="Total Value"
+                value={`$${analyticsData.totalValue.toLocaleString()}`}
+                icon={DollarSign}
+                iconColor="text-green-600"
+                description="Total inventory value"
+              />
+              <AnalyticsCard
+                title="Low Stock Items"
+                value={analyticsData.lowStockItems}
+                icon={AlertTriangle}
+                iconColor="text-orange-600"
+                description="Items with quantity <= 20"
+              />
+              <AnalyticsCard
+                title="Out of Stock"
+                value={analyticsData.outOfStockItems}
+                icon={ShoppingCart}
+                iconColor="text-red-600"
+                description="Items with zero quantity"
+              />
+            </>
+          )}
         </div>
 
         {/* Charts and Insights */}
-        <Tabs defaultValue="overview" className="space-y-4">
+        {isLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-12 w-full" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Skeleton className="h-80" />
+              <Skeleton className="h-80" />
+            </div>
+          </div>
+        ) : (
+          <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="distribution">Distribution</TabsTrigger>
@@ -529,16 +550,25 @@ export default function BusinessInsightsPage() {
             </ChartCard>
           </TabsContent>
         </Tabs>
+        )}
 
         {/* Additional Insights */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Quick Insights
-              </CardTitle>
-            </CardHeader>
+          {isLoading ? (
+            <>
+              <Skeleton className="h-64" />
+              <Skeleton className="h-64" />
+              <Skeleton className="h-64" />
+            </>
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5" />
+                    Quick Insights
+                  </CardTitle>
+                </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm">Average Price</span>
@@ -612,10 +642,16 @@ export default function BusinessInsightsPage() {
               />
             </CardContent>
           </Card>
+            </>
+          )}
         </div>
 
         {/* Forecasting Section */}
-        <ForecastingCard products={allProducts} />
+        {isLoading ? (
+          <Skeleton className="h-96" />
+        ) : (
+          <ForecastingCard products={allProducts} />
+        )}
       </div>
     </AuthenticatedLayout>
   );

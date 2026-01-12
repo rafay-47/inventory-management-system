@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
 import { toNullableNumber } from "../products";
+import { hasPermission } from "@/middleware/roleMiddleware";
+import { auditCreate, auditUpdate, auditDelete, createAuditLog } from "@/utils/auditLogger";
 
 const prisma = new PrismaClient();
 
@@ -28,6 +30,10 @@ export default async function handler(
   switch (method) {
     case "POST":
       try {
+        const canCreate = await hasPermission(userId, "variants", "create");
+        if (!canCreate) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to create variants" });
+        }
         const {
           productId,
           name,
@@ -51,9 +57,9 @@ export default async function handler(
           expiryDate,
         } = req.body;
 
-        // Verify the product belongs to the user
+        // Verify the product exists
         const product = await prisma.product.findFirst({
-          where: { id: productId, userId },
+          where: { id: productId },
         });
 
         if (!product) {
@@ -110,22 +116,59 @@ export default async function handler(
           data: { hasVariants: true },
         });
 
+        // Audit log the variant creation
+        await auditCreate(
+          "ProductVariant",
+          {
+            id: variant.id,
+            name: `${product.name} - ${name}`,
+            sku: variant.sku,
+            productId,
+            productName: product.name,
+          },
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+          },
+          req
+        );
+
         res.status(201).json(variant);
       } catch (error) {
         console.error("Error creating variant:", error);
+        
+        await createAuditLog(
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+            action: "CREATE",
+            entityType: "ProductVariant",
+            status: "error",
+            errorMessage: error instanceof Error ? error.message : "Failed to create variant",
+            metadata: { productId: req.body.productId, sku: req.body.sku },
+          },
+          req
+        );
+        
         res.status(500).json({ error: "Failed to create variant" });
       }
       break;
 
     case "GET":
       try {
+        const canRead = await hasPermission(userId, "variants", "read");
+        if (!canRead) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to view variants" });
+        }
         const { productId } = req.query;
 
         let variants;
         if (productId) {
           // Get variants for a specific product
           const product = await prisma.product.findFirst({
-            where: { id: productId as string, userId },
+            where: { id: productId as string },
           });
 
           if (!product) {
@@ -137,16 +180,8 @@ export default async function handler(
             orderBy: { createdAt: "desc" },
           });
         } else {
-          // Get all variants for all user's products
-          const userProducts = await prisma.product.findMany({
-            where: { userId },
-            select: { id: true },
-          });
-
-          const productIds = userProducts.map((p) => p.id);
-
+          // Get all variants for all products
           variants = await prisma.productVariant.findMany({
-            where: { productId: { in: productIds } },
             orderBy: { createdAt: "desc" },
             include: {
               product: {
@@ -168,6 +203,10 @@ export default async function handler(
 
     case "PUT":
       try {
+        const canUpdate = await hasPermission(userId, "variants", "update");
+        if (!canUpdate) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to update variants" });
+        }
         const {
           id,
           name,
@@ -190,13 +229,13 @@ export default async function handler(
           expiryDate,
         } = req.body;
 
-        // Verify the variant exists and belongs to user's product
+        // Verify the variant exists
         const existingVariant = await prisma.productVariant.findUnique({
           where: { id },
           include: { product: true },
         });
 
-        if (!existingVariant || existingVariant.product.userId !== userId) {
+        if (!existingVariant) {
           return res.status(404).json({ error: "Variant not found" });
         }
 
@@ -249,28 +288,62 @@ export default async function handler(
           },
         });
 
+        // Audit log the update
+        await auditUpdate(
+          "ProductVariant",
+          id,
+          `${existingVariant.product.name} - ${name}`,
+          existingVariant,
+          updatedVariant,
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+          },
+          req
+        );
+
         res.status(200).json(updatedVariant);
       } catch (error) {
         console.error("Error updating variant:", error);
+        
+        await createAuditLog(
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+            action: "UPDATE",
+            entityType: "ProductVariant",
+            entityId: req.body.id,
+            status: "error",
+            errorMessage: error instanceof Error ? error.message : "Failed to update variant",
+          },
+          req
+        );
+        
         res.status(500).json({ error: "Failed to update variant" });
       }
       break;
 
     case "DELETE":
       try {
+        const canDelete = await hasPermission(userId, "variants", "delete");
+        if (!canDelete) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to delete variants" });
+        }
         const { id } = req.query;
 
         if (!id || typeof id !== "string") {
           return res.status(400).json({ error: "Variant ID is required" });
         }
 
-        // Verify the variant exists and belongs to user's product
+        // Verify the variant exists
         const variant = await prisma.productVariant.findUnique({
           where: { id },
           include: { product: true },
         });
 
-        if (!variant || variant.product.userId !== userId) {
+        if (!variant) {
           return res.status(404).json({ error: "Variant not found" });
         }
 
@@ -292,9 +365,40 @@ export default async function handler(
           });
         }
 
+        // Audit log the deletion
+        await auditDelete(
+          "ProductVariant",
+          {
+            id: variant.id,
+            name: `${variant.product.name} - ${variant.name}`,
+            sku: variant.sku,
+          },
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+          },
+          req
+        );
+
         res.status(200).json({ message: "Variant deleted successfully" });
       } catch (error) {
         console.error("Error deleting variant:", error);
+        
+        await createAuditLog(
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+            action: "DELETE",
+            entityType: "ProductVariant",
+            entityId: req.query.id as string,
+            status: "error",
+            errorMessage: error instanceof Error ? error.message : "Failed to delete variant",
+          },
+          req
+        );
+        
         res.status(500).json({ error: "Failed to delete variant" });
       }
       break;

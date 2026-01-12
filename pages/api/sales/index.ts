@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
+import { hasPermission } from "@/middleware/roleMiddleware";
+import { auditCreate, createAuditLog } from "@/utils/auditLogger";
 
 const prisma = new PrismaClient();
 
@@ -56,12 +58,11 @@ export default async function handler(
   switch (method) {
     case "GET": {
       try {
+        const canRead = await hasPermission(userId, "sales", "read");
+        if (!canRead) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to view sales" });
+        }
         const orders = await prisma.order.findMany({
-          where: {
-            customer: {
-              userId,
-            },
-          },
           include: {
             customer: true,
             orderItems: {
@@ -82,6 +83,10 @@ export default async function handler(
 
     case "POST": {
       try {
+        const canCreate = await hasPermission(userId, "sales", "create");
+        if (!canCreate) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to create sales" });
+        }
         const {
           customerName,
           customerEmail,
@@ -108,7 +113,7 @@ export default async function handler(
           include: { variants: true },
         });
 
-        if (!product || product.userId !== userId) {
+        if (!product) {
           return res.status(404).json({ error: "Product not found" });
         }
 
@@ -143,7 +148,7 @@ export default async function handler(
         let customer = null;
         if (customerEmail) {
           customer = await prisma.customer.findFirst({
-            where: { userId, email: customerEmail },
+            where: { email: customerEmail },
           });
         }
 
@@ -249,6 +254,26 @@ export default async function handler(
           });
         }
 
+        // Audit log the sale
+        await auditCreate(
+          "Sale",
+          {
+            id: createdOrder.id,
+            name: `Sale to ${customerName} - ${productName || product.name}`,
+            orderNumber: createdOrder.orderNumber,
+            customerName,
+            productName: productName || product.name,
+            quantity: qty,
+            totalAmount: total,
+          },
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+          },
+          req
+        );
+
         return res.status(201).json(
           serializeOrder({
             ...createdOrder,
@@ -260,6 +285,26 @@ export default async function handler(
         );
       } catch (error) {
         console.error("Error recording sale:", error);
+        
+        // Audit log the failed sale attempt
+        await createAuditLog(
+          {
+            userId: session.id,
+            userName: session.name,
+            userEmail: session.email,
+            action: "CREATE",
+            entityType: "Sale",
+            status: "error",
+            errorMessage: error instanceof Error ? error.message : "Failed to record sales transaction",
+            metadata: {
+              customerName: req.body.customerName,
+              productId: req.body.productId,
+              totalAmount: req.body.totalAmount,
+            },
+          },
+          req
+        );
+        
         return res.status(500).json({ error: "Failed to record sales transaction" });
       }
     }

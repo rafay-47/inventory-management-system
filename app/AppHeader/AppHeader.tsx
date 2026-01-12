@@ -5,15 +5,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AiFillProduct } from "react-icons/ai";
-import { FiActivity, FiBarChart, FiFileText, FiHome } from "react-icons/fi"; // Import icons for new nav items
+import { FiActivity, FiBarChart, FiFileText, FiHome } from "react-icons/fi";
+import { ScrollText } from "lucide-react";
 import { useAuth } from "../authContext";
 import { ModeToggle } from "./ModeToggle";
+import RoleBadge from "../components/RoleBadge";
 
 export default function AppHeader() {
   const { logout, user } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Check if user is admin (has admin role)
+  const isAdmin = user?.roles?.includes("admin") ?? false;
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -55,7 +60,10 @@ export default function AppHeader() {
           <AiFillProduct className="text-3xl" />
         </div>
         <div className="text-center sm:text-left">
-          <h1 className="text-2xl font-bold">Welcome, {user?.name}!</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">Welcome, {user?.name}!</h1>
+            <RoleBadge />
+          </div>
           <p className="text-sm">{user?.email}</p>
         </div>
       </div>
@@ -71,33 +79,46 @@ export default function AppHeader() {
           <FiHome className="mr-2 h-4 w-4" />
           Dashboard
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/business-insights")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiBarChart className="mr-2 h-4 w-4" />
-          Business Insights
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/api-docs")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiFileText className="mr-2 h-4 w-4" />
-          API Docs
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleNavigation("/api-status")}
-          className="text-primary-foreground hover:bg-primary-dark"
-        >
-          <FiActivity className="mr-2 h-4 w-4" />
-          API Status
-        </Button>
+        {isAdmin && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/audit-logs")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <ScrollText className="mr-2 h-4 w-4" />
+              Audit Logs
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/business-insights")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiBarChart className="mr-2 h-4 w-4" />
+              Business Insights
+            </Button>
+            {/* <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/api-docs")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiFileText className="mr-2 h-4 w-4" />
+              API Docs
+            </Button> */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleNavigation("/api-status")}
+              className="text-primary-foreground hover:bg-primary-dark"
+            >
+              <FiActivity className="mr-2 h-4 w-4" />
+              API Status
+            </Button>
+          </>
+        )}
 
         <ModeToggle />
         <Button

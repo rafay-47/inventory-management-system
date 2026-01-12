@@ -6,7 +6,30 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Starting database seeding...')
 
-  // Create a default user
+  // Create roles first
+  const adminRole = await prisma.role.upsert({
+    where: { name: 'admin' },
+    update: {},
+    create: {
+      name: 'admin',
+      description: 'Administrator with full access to all features',
+      isSystem: true,
+    },
+  })
+  console.log('✅ Created role:', adminRole.name)
+
+  const salespersonRole = await prisma.role.upsert({
+    where: { name: 'salesperson' },
+    update: {},
+    create: {
+      name: 'salesperson',
+      description: 'Salesperson with access to products, sales, and customers',
+      isSystem: true,
+    },
+  })
+  console.log('✅ Created role:', salespersonRole.name)
+
+  // Create a default admin user
   const hashedPassword = await bcrypt.hash('password123', 10)
   const user = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
@@ -19,6 +42,52 @@ async function main() {
     },
   })
   console.log('✅ Created user:', user.name)
+
+  // Assign admin role to the admin user
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: user.id,
+        roleId: adminRole.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: user.id,
+      roleId: adminRole.id,
+    },
+  })
+  console.log('✅ Assigned admin role to:', user.name)
+
+  // Create a salesperson user
+  const salesPassword = await bcrypt.hash('password123', 10)
+  const salesUser = await prisma.user.upsert({
+    where: { email: 'sales@example.com' },
+    update: {},
+    create: {
+      email: 'sales@example.com',
+      name: 'Sales Person',
+      username: 'salesperson',
+      password: salesPassword,
+    },
+  })
+  console.log('✅ Created user:', salesUser.name)
+
+  // Assign salesperson role
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: salesUser.id,
+        roleId: salespersonRole.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: salesUser.id,
+      roleId: salespersonRole.id,
+    },
+  })
+  console.log('✅ Assigned salesperson role to:', salesUser.name)
 
   // Create categories
   const categories = await Promise.all([
@@ -427,6 +496,353 @@ async function main() {
   ])
   console.log('✅ Created stock alerts:', stockAlerts.length)
 
+  // Create purchase orders
+  const purchaseOrders = await Promise.all([
+    prisma.purchaseOrder.upsert({
+      where: { poNumber: 'PO-2024-001' },
+      update: {},
+      create: {
+        poNumber: 'PO-2024-001',
+        supplierId: suppliers[0].id, // TechCorp Supplies
+        userId: user.id,
+        status: 'completed',
+        orderedAt: new Date('2024-01-15'),
+        expectedAt: new Date('2024-01-25'),
+        receivedAt: new Date('2024-01-23'),
+        totalCost: 54999.50,
+        currency: 'USD',
+        notes: 'Initial gaming laptop stock order',
+      },
+    }),
+    prisma.purchaseOrder.upsert({
+      where: { poNumber: 'PO-2024-002' },
+      update: {},
+      create: {
+        poNumber: 'PO-2024-002',
+        supplierId: suppliers[1].id, // Fashion Wholesale
+        userId: user.id,
+        status: 'completed',
+        orderedAt: new Date('2024-02-01'),
+        expectedAt: new Date('2024-02-10'),
+        receivedAt: new Date('2024-02-09'),
+        totalCost: 1798.00,
+        currency: 'USD',
+        notes: 'T-shirt bulk order for spring collection',
+      },
+    }),
+    prisma.purchaseOrder.upsert({
+      where: { poNumber: 'PO-2024-003' },
+      update: {},
+      create: {
+        poNumber: 'PO-2024-003',
+        supplierId: suppliers[2].id, // Book Distributors Inc
+        userId: user.id,
+        status: 'pending',
+        orderedAt: new Date('2024-12-10'),
+        expectedAt: new Date('2024-12-20'),
+        totalCost: 2250.00,
+        currency: 'USD',
+        notes: 'JavaScript programming books - pending delivery',
+      },
+    }),
+  ])
+  console.log('✅ Created purchase orders:', purchaseOrders.map((po: any) => po.poNumber))
+
+  // Create purchase order items
+  const purchaseOrderItems = await Promise.all([
+    // PO-2024-001 items (Laptops)
+    prisma.purchaseOrderItem.create({
+      data: {
+        purchaseOrderId: purchaseOrders[0].id,
+        productVariantId: variants[0].id, // 16GB Laptop
+        orderedQuantity: 30,
+        receivedQuantity: 30,
+        costPerUnit: 899.99,
+        lineTotal: 26999.70,
+      },
+    }),
+    prisma.purchaseOrderItem.create({
+      data: {
+        purchaseOrderId: purchaseOrders[0].id,
+        productVariantId: variants[1].id, // 32GB Laptop
+        orderedQuantity: 25,
+        receivedQuantity: 25,
+        costPerUnit: 1099.99,
+        lineTotal: 27499.75,
+      },
+    }),
+    // PO-2024-002 items (T-Shirts)
+    prisma.purchaseOrderItem.create({
+      data: {
+        purchaseOrderId: purchaseOrders[1].id,
+        productVariantId: variants[2].id, // Small T-Shirt
+        orderedQuantity: 50,
+        receivedQuantity: 50,
+        costPerUnit: 8.99,
+        lineTotal: 449.50,
+      },
+    }),
+    prisma.purchaseOrderItem.create({
+      data: {
+        purchaseOrderId: purchaseOrders[1].id,
+        productVariantId: variants[3].id, // Medium T-Shirt
+        orderedQuantity: 75,
+        receivedQuantity: 75,
+        costPerUnit: 8.99,
+        lineTotal: 674.25,
+      },
+    }),
+    prisma.purchaseOrderItem.create({
+      data: {
+        purchaseOrderId: purchaseOrders[1].id,
+        productVariantId: variants[4].id, // Large T-Shirt
+        orderedQuantity: 75,
+        receivedQuantity: 75,
+        costPerUnit: 8.99,
+        lineTotal: 674.25,
+      },
+    }),
+    // PO-2024-003 items (Books)
+    prisma.purchaseOrderItem.create({
+      data: {
+        purchaseOrderId: purchaseOrders[2].id,
+        productId: products[2].id, // JavaScript Guide
+        orderedQuantity: 150,
+        receivedQuantity: 0,
+        costPerUnit: 15.00,
+        lineTotal: 2250.00,
+      },
+    }),
+  ])
+  console.log('✅ Created purchase order items:', purchaseOrderItems.length)
+
+  // Create sales orders
+  const salesOrders = await Promise.all([
+    prisma.order.upsert({
+      where: { orderNumber: 'SO-2024-001' },
+      update: {},
+      create: {
+        orderNumber: 'SO-2024-001',
+        customerId: customers[0].id, // John Doe
+        status: 'fulfilled',
+        orderedAt: new Date('2024-03-01'),
+        fulfilledAt: new Date('2024-03-03'),
+        totalAmount: 2619.97,
+        notes: 'Corporate laptop order for Doe Enterprises',
+        source: 'website',
+      },
+    }),
+    prisma.order.upsert({
+      where: { orderNumber: 'SO-2024-002' },
+      update: {},
+      create: {
+        orderNumber: 'SO-2024-002',
+        customerId: customers[1].id, // Jane Smith
+        status: 'fulfilled',
+        orderedAt: new Date('2024-03-15'),
+        fulfilledAt: new Date('2024-03-16'),
+        totalAmount: 59.97,
+        notes: 'T-shirt order - various sizes',
+        source: 'online',
+      },
+    }),
+    prisma.order.upsert({
+      where: { orderNumber: 'SO-2024-003' },
+      update: {},
+      create: {
+        orderNumber: 'SO-2024-003',
+        customerId: customers[0].id, // John Doe
+        status: 'processing',
+        orderedAt: new Date('2024-12-15'),
+        totalAmount: 1499.99,
+        notes: 'High-end laptop order - awaiting fulfillment',
+        source: 'phone',
+      },
+    }),
+  ])
+  console.log('✅ Created sales orders:', salesOrders.map((so: any) => so.orderNumber))
+
+  // Create order items
+  const orderItems = await Promise.all([
+    // SO-2024-001 items
+    prisma.orderItem.create({
+      data: {
+        orderId: salesOrders[0].id,
+        productVariantId: variants[0].id, // 16GB Laptop
+        quantity: 2,
+        unitPrice: 1299.99,
+        discount: 40.01,
+        subtotal: 2559.98,
+      },
+    }),
+    prisma.orderItem.create({
+      data: {
+        orderId: salesOrders[0].id,
+        productId: products[3].id, // Office Chair
+        quantity: 1,
+        unitPrice: 199.99,
+        discount: 140.00,
+        subtotal: 59.99,
+      },
+    }),
+    // SO-2024-002 items
+    prisma.orderItem.create({
+      data: {
+        orderId: salesOrders[1].id,
+        productVariantId: variants[2].id, // Small T-Shirt
+        quantity: 1,
+        unitPrice: 19.99,
+        subtotal: 19.99,
+      },
+    }),
+    prisma.orderItem.create({
+      data: {
+        orderId: salesOrders[1].id,
+        productVariantId: variants[3].id, // Medium T-Shirt
+        quantity: 2,
+        unitPrice: 19.99,
+        subtotal: 39.98,
+      },
+    }),
+    // SO-2024-003 items
+    prisma.orderItem.create({
+      data: {
+        orderId: salesOrders[2].id,
+        productVariantId: variants[1].id, // 32GB Laptop
+        quantity: 1,
+        unitPrice: 1499.99,
+        subtotal: 1499.99,
+      },
+    }),
+  ])
+  console.log('✅ Created order items:', orderItems.length)
+
+  // Create inventory transactions for completed orders
+  const inventoryTransactions = await Promise.all([
+    // Purchase transactions (PO-2024-001)
+    prisma.inventoryTransaction.create({
+      data: {
+        transactionType: 'PURCHASE',
+        productVariantId: variants[0].id,
+        warehouseId: warehouses[0].id,
+        userId: user.id,
+        purchaseOrderId: purchaseOrders[0].id,
+        quantity: 30,
+        referenceCode: 'PO-2024-001',
+        notes: 'Received 16GB laptops from TechCorp',
+        createdAt: new Date('2024-01-23'),
+      },
+    }),
+    prisma.inventoryTransaction.create({
+      data: {
+        transactionType: 'PURCHASE',
+        productVariantId: variants[1].id,
+        warehouseId: warehouses[0].id,
+        userId: user.id,
+        purchaseOrderId: purchaseOrders[0].id,
+        quantity: 25,
+        referenceCode: 'PO-2024-001',
+        notes: 'Received 32GB laptops from TechCorp',
+        createdAt: new Date('2024-01-23'),
+      },
+    }),
+    // Purchase transactions (PO-2024-002)
+    prisma.inventoryTransaction.create({
+      data: {
+        transactionType: 'PURCHASE',
+        productVariantId: variants[2].id,
+        warehouseId: warehouses[0].id,
+        userId: user.id,
+        purchaseOrderId: purchaseOrders[1].id,
+        quantity: 50,
+        referenceCode: 'PO-2024-002',
+        notes: 'Received Small T-shirts from Fashion Wholesale',
+        createdAt: new Date('2024-02-09'),
+      },
+    }),
+    prisma.inventoryTransaction.create({
+      data: {
+        transactionType: 'PURCHASE',
+        productVariantId: variants[3].id,
+        warehouseId: warehouses[0].id,
+        userId: user.id,
+        purchaseOrderId: purchaseOrders[1].id,
+        quantity: 75,
+        referenceCode: 'PO-2024-002',
+        notes: 'Received Medium T-shirts from Fashion Wholesale',
+        createdAt: new Date('2024-02-09'),
+      },
+    }),
+    prisma.inventoryTransaction.create({
+      data: {
+        transactionType: 'PURCHASE',
+        productVariantId: variants[4].id,
+        warehouseId: warehouses[0].id,
+        userId: user.id,
+        purchaseOrderId: purchaseOrders[1].id,
+        quantity: 75,
+        referenceCode: 'PO-2024-002',
+        notes: 'Received Large T-shirts from Fashion Wholesale',
+        createdAt: new Date('2024-02-09'),
+      },
+    }),
+    // Sales transactions (SO-2024-001)
+    prisma.inventoryTransaction.create({
+      data: {
+        transactionType: 'SALE',
+        productVariantId: variants[0].id,
+        warehouseId: warehouses[0].id,
+        userId: user.id,
+        orderId: salesOrders[0].id,
+        quantity: -2,
+        referenceCode: 'SO-2024-001',
+        notes: 'Sold 2x 16GB laptops to Doe Enterprises',
+        createdAt: new Date('2024-03-03'),
+      },
+    }),
+    prisma.inventoryTransaction.create({
+      data: {
+        transactionType: 'SALE',
+        productId: products[3].id,
+        warehouseId: warehouses[0].id,
+        userId: user.id,
+        orderId: salesOrders[0].id,
+        quantity: -1,
+        referenceCode: 'SO-2024-001',
+        notes: 'Sold 1x Office Chair to Doe Enterprises',
+        createdAt: new Date('2024-03-03'),
+      },
+    }),
+    // Sales transactions (SO-2024-002)
+    prisma.inventoryTransaction.create({
+      data: {
+        transactionType: 'SALE',
+        productVariantId: variants[2].id,
+        warehouseId: warehouses[0].id,
+        userId: user.id,
+        orderId: salesOrders[1].id,
+        quantity: -1,
+        referenceCode: 'SO-2024-002',
+        notes: 'Sold 1x Small T-shirt',
+        createdAt: new Date('2024-03-16'),
+      },
+    }),
+    prisma.inventoryTransaction.create({
+      data: {
+        transactionType: 'SALE',
+        productVariantId: variants[3].id,
+        warehouseId: warehouses[0].id,
+        userId: user.id,
+        orderId: salesOrders[1].id,
+        quantity: -2,
+        referenceCode: 'SO-2024-002',
+        notes: 'Sold 2x Medium T-shirts',
+        createdAt: new Date('2024-03-16'),
+      },
+    }),
+  ])
+  console.log('✅ Created inventory transactions:', inventoryTransactions.length)
+
   console.log('🎉 Database seeding completed successfully!')
   console.log('\n📊 Summary:')
   console.log(`   Users: 1`)
@@ -438,6 +854,11 @@ async function main() {
   console.log(`   Product Variants: ${variants.length}`)
   console.log(`   Stock Levels: ${stockLevels.length}`)
   console.log(`   Stock Alerts: ${stockAlerts.length}`)
+  console.log(`   Purchase Orders: ${purchaseOrders.length}`)
+  console.log(`   Purchase Order Items: ${purchaseOrderItems.length}`)
+  console.log(`   Sales Orders: ${salesOrders.length}`)
+  console.log(`   Order Items: ${orderItems.length}`)
+  console.log(`   Inventory Transactions: ${inventoryTransactions.length}`)
   console.log('\n🔐 Default login credentials:')
   console.log('   Email: admin@example.com')
   console.log('   Password: password123')

@@ -28,12 +28,13 @@ const PageContent: React.FC = () => {
     return <Loading />;
   }
 
-  // Memoize the component to prevent unnecessary re-renders
-  if (isLoggedIn) {
-    return <Home />;
+  // If not logged in, show login page (shouldn't reach here due to middleware)
+  if (!isLoggedIn) {
+    return <Login />;
   }
-  
-  return <Login />;
+
+  // Show home dashboard (middleware ensures only authorized users reach here)
+  return <Home />;
 };
 
 const Page: React.FC<PageProps> = ({ params, searchParams }) => {

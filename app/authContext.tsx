@@ -8,6 +8,7 @@ interface User {
   id: string;
   name?: string;
   email: string;
+  roles?: string[];
 }
 
 interface AuthContextType {
@@ -16,6 +17,9 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  hasRole: (role: string) => boolean;
+  isAdmin: () => boolean;
+  isSalesperson: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -64,15 +68,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           console.log("Session from getSessionClient:", session);
         }
         if (session && session.id) {
+          // Fetch user roles
+          let userRoles: string[] = [];
+          try {
+            const rolesResponse = await axiosInstance.get("/auth/me");
+            userRoles = rolesResponse.data.roles || [];
+          } catch (roleError) {
+            console.warn("Could not fetch user roles:", roleError);
+          }
+
           setIsLoggedIn(true);
           setUser({
             id: session.id,
             name: session.name,
             email: session.email,
+            roles: userRoles,
           });
           // Debug log - only log in development
           if (process.env.NODE_ENV === 'development') {
-            console.log("User from session:", session);
+            console.log("User from session:", session, "Roles:", userRoles);
           }
           // Set necessary attributes in local storage
           localStorage.setItem("isAuth", "true");
@@ -102,16 +116,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       const result = response.data;
+      
+      // Fetch user roles
+      let userRoles: string[] = [];
+      try {
+        const rolesResponse = await axiosInstance.get("/auth/me");
+        userRoles = rolesResponse.data.roles || [];
+      } catch (roleError) {
+        console.warn("Could not fetch user roles:", roleError);
+      }
+
       setIsLoggedIn(true);
       setUser({
         id: result.userId,
         name: result.userName,
         email: result.userEmail,
+        roles: userRoles,
       });
       // Note: The server sets the session_id as an httpOnly cookie, so we don't need to set it client-side
       // Debug log - only log in development
       if (process.env.NODE_ENV === 'development') {
-        console.log("Login successful, user:", result);
+        console.log("Login successful, user:", result, "Roles:", userRoles);
       }
 
       // Set necessary attributes in local storage
@@ -148,8 +173,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("getSession", "");
   };
 
+  const hasRole = (role: string): boolean => {
+    return user?.roles?.includes(role) || false;
+  };
+
+  const isAdmin = (): boolean => {
+    return hasRole("admin");
+  };
+
+  const isSalesperson = (): boolean => {
+    return hasRole("salesperson");
+  };
+
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, logout, hasRole, isAdmin, isSalesperson }}>
       {children}
     </AuthContext.Provider>
   );

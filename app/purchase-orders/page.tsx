@@ -27,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/app/authContext";
 import Loading from "@/components/Loading";
+import { Skeleton } from "@/components/ui/skeleton";
 import axiosInstance from "@/utils/axiosInstance";
 import { Check, Plus, Trash2 } from "lucide-react";
 import AddSupplierDialog from "@/app/AppTable/ProductDialog/AddSupplierDialog";
@@ -301,26 +302,35 @@ export default function PurchaseOrdersPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending Orders</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-3xl font-semibold">{purchaseSummary.pending}</p>
-              <p className="text-sm text-muted-foreground">Awaiting completion</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Total Spend</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-3xl font-semibold">
-                {formatCurrency(purchaseSummary.totalSpend)}
-              </p>
-              <p className="text-sm text-muted-foreground">All purchase orders</p>
-            </CardContent>
-          </Card>
+          {purchaseLoading ? (
+            <>
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </>
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pending Orders</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-3xl font-semibold">{purchaseSummary.pending}</p>
+                  <p className="text-sm text-muted-foreground">Awaiting completion</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Total Spend</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-3xl font-semibold">
+                    {formatCurrency(purchaseSummary.totalSpend)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">All purchase orders</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -592,9 +602,11 @@ export default function PurchaseOrdersPage() {
             </CardHeader>
             <CardContent>
               {purchaseLoading ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading purchase orders...
-                </p>
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} className="h-16" />
+                  ))}
+                </div>
               ) : purchaseOrders.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No purchase orders recorded yet. Use the form to add your first

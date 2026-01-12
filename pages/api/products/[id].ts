@@ -7,6 +7,7 @@ import {
   productInclude,
   toNullableNumber,
 } from "./index";
+import { hasPermission } from "@/middleware/roleMiddleware";
 
 const prisma = new PrismaClient();
 
@@ -30,6 +31,10 @@ export default async function handler(
   switch (method) {
     case "GET":
       try {
+        const canRead = await hasPermission(userId, "products", "read");
+        if (!canRead) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to view products" });
+        }
         const product = await prisma.product.findUnique({
           where: { id },
           include: productInclude,
@@ -48,6 +53,10 @@ export default async function handler(
 
     case "PUT":
       try {
+        const canUpdate = await hasPermission(userId, "products", "update");
+        if (!canUpdate) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to update products" });
+        }
         const {
           name,
           sku,
@@ -112,6 +121,10 @@ export default async function handler(
 
     case "DELETE":
       try {
+        const canDelete = await hasPermission(userId, "products", "delete");
+        if (!canDelete) {
+          return res.status(403).json({ error: "Forbidden", message: "You don't have permission to delete products" });
+        }
         // Check if product exists
         const productToDelete = await prisma.product.findUnique({
           where: { id },

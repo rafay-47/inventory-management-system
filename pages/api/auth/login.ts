@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { generateToken } from "../../../utils/auth";
 import Cookies from "cookies";
+import { auditLogin } from "@/utils/auditLogger";
 
 const prisma = new PrismaClient();
 
@@ -56,6 +57,12 @@ export default async function login(req: NextApiRequest, res: NextApiResponse) {
 
     if (!user) {
       console.error("User not found for email:", email);
+      await auditLogin(
+        { userEmail: email },
+        "failed",
+        "User not found",
+        req
+      );
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
@@ -73,6 +80,12 @@ export default async function login(req: NextApiRequest, res: NextApiResponse) {
 
     if (!isPasswordValid) {
       console.error("Invalid password for email:", email);
+      await auditLogin(
+        { userId: user.id, userName: user.name, userEmail: user.email },
+        "failed",
+        "Invalid password",
+        req
+      );
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
@@ -105,6 +118,15 @@ export default async function login(req: NextApiRequest, res: NextApiResponse) {
     });
 
     console.log("Login successful, session ID set:", token);
+    
+    // Audit successful login
+    await auditLogin(
+      { userId: user.id, userName: user.name, userEmail: user.email },
+      "success",
+      undefined,
+      req
+    );
+    
     res.status(200).json({
       userId: user.id,
       userName: user.name,

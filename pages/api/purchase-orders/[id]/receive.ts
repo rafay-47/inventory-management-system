@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
+import { hasPermission } from "@/middleware/roleMiddleware";
+import { auditUpdate, createAuditLog } from "@/utils/auditLogger";
 
 const prisma = new PrismaClient();
 
@@ -38,6 +40,15 @@ export default async function handler(
   }
 
   try {
+    // Check permission
+    const canReceive = await hasPermission(userId, "purchaseOrders", "receive");
+    if (!canReceive) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "You don't have permission to receive purchase orders",
+      });
+    }
+
     // Fetch the purchase order with items
     const purchaseOrder = await prisma.purchaseOrder.findUnique({
       where: { id },
@@ -54,10 +65,6 @@ export default async function handler(
 
     if (!purchaseOrder) {
       return res.status(404).json({ error: "Purchase order not found" });
-    }
-
-    if (purchaseOrder.userId !== userId) {
-      return res.status(403).json({ error: "Forbidden" });
     }
 
     if (purchaseOrder.status === "Received" || purchaseOrder.status === "Closed") {
@@ -176,6 +183,21 @@ export default async function handler(
       });
     }
 
+    // Audit log the receive action
+    await auditUpdate(
+      "PurchaseOrder",
+      updatedPO.id,
+      updatedPO.poNumber || `PO-${updatedPO.id.slice(0, 8)}`,
+      { status: purchaseOrder.status, receivedAt: null },
+      { status: "Received", receivedAt: updatedPO.receivedAt },
+      {
+        userId: session.id,
+        userName: session.name,
+        userEmail: session.email,
+      },
+      req
+    );
+
     return res.status(200).json({
       success: true,
       message: `Purchase order ${updatedPO.poNumber} received successfully`,
@@ -190,6 +212,22 @@ export default async function handler(
     });
   } catch (error) {
     console.error("Error receiving purchase order:", error);
+    
+    // Audit log the failed operation
+    await createAuditLog(
+      {
+        userId: session.id,
+        userName: session.name,
+        userEmail: session.email,
+        action: "UPDATE",
+        entityType: "PurchaseOrder",
+        entityId: id as string,
+        status: "error",
+        errorMessage: error instanceof Error ? error.message : "Failed to receive purchase order",
+      },
+      req
+    );
+    
     return res.status(500).json({ error: "Failed to receive purchase order" });
   }
 }

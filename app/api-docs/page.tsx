@@ -14,15 +14,38 @@ export default function ApiDocsPage() {
         {
           method: "POST",
           path: "/api/auth/register",
-          description: "Register a new user",
+          description: "Create a new user account (Admin only)",
           parameters: [
             { name: "name", type: "string", required: true, description: "User's full name" },
             { name: "email", type: "string", required: true, description: "User's email address" },
-            { name: "password", type: "string", required: true, description: "User's password (min 6 characters)" }
+            { name: "password", type: "string", required: true, description: "User's password (min 6 characters)" },
+            { name: "role", type: "string", required: false, description: "User role: 'admin' or 'salesperson' (default: salesperson)" }
           ],
           response: {
             success: { status: 201, data: "{ id: string, name: string, email: string }" },
             error: { status: 400, data: "{ error: string }" }
+          }
+        },
+        {
+          method: "GET",
+          path: "/api/auth/users",
+          description: "Get all users with their roles (Admin only)",
+          parameters: [],
+          response: {
+            success: { status: 200, data: "[{ id: string, name: string, email: string, username: string, roles: string[], createdAt: string }]" },
+            error: { status: 403, data: "{ error: string }" }
+          }
+        },
+        {
+          method: "DELETE",
+          path: "/api/auth/users/:userId",
+          description: "Delete a user account (Admin only)",
+          parameters: [
+            { name: "userId", type: "string", required: true, description: "ID of the user to delete" }
+          ],
+          response: {
+            success: { status: 200, data: "{ message: string }" },
+            error: { status: 403, data: "{ error: string }" }
           }
         },
         {
