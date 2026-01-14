@@ -298,11 +298,11 @@ function generateInvoiceHTML(invoice: any) {
       background: #0056b3;
     }
     .btn-download {
-      background: #28a745;
+      background: #007bff;
       color: white;
     }
     .btn-download:hover {
-      background: #218838;
+      background: #0056b3;
     }
     @media print {
       body {
@@ -344,10 +344,10 @@ function generateInvoiceHTML(invoice: any) {
 <body>
   <div class="action-buttons">
     <button class="btn btn-print" onclick="window.print()">
-      🖨️ Print
+      Print
     </button>
     <button class="btn btn-download" onclick="downloadPDF()">
-      📥 Download PDF
+      Download PDF
     </button>
   </div>
   

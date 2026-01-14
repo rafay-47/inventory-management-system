@@ -33,9 +33,25 @@ export default function Login() {
       setEmail("");
       setPassword("");
 
-      // Redirect to dashboard after a short delay
+      // Redirect based on user role after a short delay
       setTimeout(() => {
-        router.push("/");
+        // Check user role from auth context
+        const userRoles = JSON.parse(localStorage.getItem("getSession") || "{}");
+        // Fetch roles via API to determine redirect
+        import("@/utils/axiosInstance").then((module) => {
+          module.default.get("/auth/me")
+            .then((response) => {
+              const roles = response.data.roles || [];
+              if (roles.includes("salesperson") && !roles.includes("admin")) {
+                router.push("/salesperson-dashboard");
+              } else {
+                router.push("/");
+              }
+            })
+            .catch(() => {
+              router.push("/");
+            });
+        });
       }, 1500);
     } catch (error) {
       // Show error toast

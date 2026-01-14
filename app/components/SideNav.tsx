@@ -14,6 +14,7 @@ import {
   ScrollText,
   Users,
   FileText,
+  LayoutDashboard,
 } from "lucide-react";
 import { useAuth } from "@/app/authContext";
 
@@ -26,6 +27,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: Home, roles: ["admin"] },
+  { label: "Sales Dashboard", href: "/salesperson-dashboard", icon: LayoutDashboard, roles: ["salesperson"] },
   { label: "Products", href: "/products", icon: PackageOpen, roles: ["admin"] },
   { label: "Purchase Orders", href: "/purchase-orders", icon: Truck, roles: ["admin"] },
   { label: "Sales", href: "/sales", icon: ShoppingCart }, // Available to all roles

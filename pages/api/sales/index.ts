@@ -21,6 +21,7 @@ const serializeOrder = (order: any) => {
     quantity: firstItem?.quantity ?? 0,
     totalAmount: order.totalAmount ?? 0,
     notes: order.notes || "",
+    userId: order.customer?.userId,
   };
 };
 
@@ -62,17 +63,59 @@ export default async function handler(
         if (!canRead) {
           return res.status(403).json({ error: "Forbidden", message: "You don't have permission to view sales" });
         }
-        const orders = await prisma.order.findMany({
-          include: {
-            customer: true,
-            orderItems: {
+
+        // Check if user is a salesperson to filter their sales only
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          include: { 
+            roles: {
               include: {
-                product: true,
+                role: true
+              }
+            }
+          },
+        });
+
+        const isAdmin = user?.roles?.some(userRole => userRole.role.name === "admin");
+        const isSalesperson = user?.roles?.some(userRole => userRole.role.name === "salesperson");
+
+        let orders;
+        
+        if (isSalesperson && !isAdmin) {
+          // Salespersons only see sales they created (via inventory transactions)
+          orders = await prisma.order.findMany({
+            where: {
+              transactions: {
+                some: {
+                  userId: userId,
+                  transactionType: "SALE"
+                }
+              }
+            },
+            include: {
+              customer: true,
+              orderItems: {
+                include: {
+                  product: true,
+                },
               },
             },
-          },
-          orderBy: { orderedAt: "desc" },
-        });
+            orderBy: { orderedAt: "desc" },
+          });
+        } else {
+          // Admins see all orders
+          orders = await prisma.order.findMany({
+            include: {
+              customer: true,
+              orderItems: {
+                include: {
+                  product: true,
+                },
+              },
+            },
+            orderBy: { orderedAt: "desc" },
+          });
+        }
 
         return res.status(200).json(orders.map((order) => serializeOrder(order)));
       } catch (error) {

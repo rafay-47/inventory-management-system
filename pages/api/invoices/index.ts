@@ -36,22 +36,70 @@ export default async function handler(
           });
         }
 
-        const invoices = await prisma.invoice.findMany({
-          include: {
-            order: {
+        // Check if user is a salesperson to filter their invoices only
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          include: { 
+            roles: {
               include: {
-                customer: true,
-                orderItems: {
-                  include: {
-                    product: true,
-                    variant: true,
+                role: true
+              }
+            }
+          },
+        });
+
+        const isAdmin = user?.roles?.some(userRole => userRole.role.name === "admin");
+        const isSalesperson = user?.roles?.some(userRole => userRole.role.name === "salesperson");
+
+        let invoices;
+
+        if (isSalesperson && !isAdmin) {
+          // Salespersons only see invoices for sales they created (via inventory transactions)
+          invoices = await prisma.invoice.findMany({
+            where: {
+              order: {
+                transactions: {
+                  some: {
+                    userId: userId,
+                    transactionType: "SALE"
+                  }
+                }
+              }
+            },
+            include: {
+              order: {
+                include: {
+                  customer: true,
+                  orderItems: {
+                    include: {
+                      product: true,
+                      variant: true,
+                    },
                   },
                 },
               },
             },
-          },
-          orderBy: { issuedAt: "desc" },
-        });
+            orderBy: { issuedAt: "desc" },
+          });
+        } else {
+          // Admins see all invoices
+          invoices = await prisma.invoice.findMany({
+            include: {
+              order: {
+                include: {
+                  customer: true,
+                  orderItems: {
+                    include: {
+                      product: true,
+                      variant: true,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: { issuedAt: "desc" },
+          });
+        }
 
         return res.status(200).json(invoices);
       } catch (error) {

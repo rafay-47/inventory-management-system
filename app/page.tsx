@@ -14,14 +14,18 @@ interface PageProps {
 
 const PageContent: React.FC = () => {
   const router = useRouter();
-  const { isLoggedIn, isLoading } = useAuth();
+  const { isLoggedIn, isLoading, isSalesperson } = useAuth();
 
   useEffect(() => {
     // Only redirect after auth check is complete
     if (!isLoading && !isLoggedIn) {
       router.push("/login");
     }
-  }, [isLoggedIn, isLoading, router]);
+    // Redirect salespersons to their dashboard
+    if (!isLoading && isLoggedIn && isSalesperson()) {
+      router.push("/salesperson-dashboard");
+    }
+  }, [isLoggedIn, isLoading, isSalesperson, router]);
 
   // Show loading while checking auth
   if (isLoading) {
@@ -31,6 +35,11 @@ const PageContent: React.FC = () => {
   // If not logged in, show login page (shouldn't reach here due to middleware)
   if (!isLoggedIn) {
     return <Login />;
+  }
+
+  // Redirect salespersons (shouldn't reach here due to useEffect)
+  if (isSalesperson()) {
+    return <Loading />;
   }
 
   // Show home dashboard (middleware ensures only authorized users reach here)
