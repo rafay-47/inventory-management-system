@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { PrismaClient, User as PrismaUser } from "@prisma/client";
+import { User as PrismaUser } from "@prisma/client";
 import { NextApiRequest, NextApiResponse } from "next";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
 

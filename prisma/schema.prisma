@@ -45,6 +45,9 @@ model Invoice {
   currency      String?
   notes         String?
   order         Order?    @relation(fields: [orderId], references: [id])
+
+  @@index([issuedAt])
+  @@index([status])
 }
 
 model Order {
@@ -63,6 +66,8 @@ model Order {
   transactions InventoryTransaction[]
 
   @@index([customerId])
+  @@index([orderedAt])
+  @@index([status])
 }
 
 model OrderItem {
@@ -123,6 +128,8 @@ model Product {
   variants              ProductVariant[]
 
   @@index([userId])
+  @@index([createdAt])
+  @@index([status])
   @@index([categoryId])
   @@index([defaultWarehouseId])
 }
@@ -252,6 +259,8 @@ model PurchaseOrder {
 
   @@index([supplierId])
   @@index([userId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model PurchaseOrderItem {
@@ -323,6 +332,9 @@ model InventoryTransaction {
   @@index([orderId])
   @@index([purchaseOrderId])
   @@index([adjustmentId])
+  @@index([transactionType])
+  @@index([createdAt])
+  @@index([userId, transactionType, orderId])
 }
 
 model InventorySnapshot {

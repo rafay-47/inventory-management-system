@@ -101,7 +101,7 @@ const getStatusColor = (status: string | null) => {
 };
 
 export default function InvoicesPage() {
-  const { isLoggedIn, isAdmin } = useAuth();
+  const { isLoggedIn, isAdmin, isLoading } = useAuth();
   const { toast } = useToast();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -143,11 +143,13 @@ export default function InvoicesPage() {
   }, []);
 
   useEffect(() => {
+    // Wait for auth check to complete
+    if (isLoading || !isLoggedIn) return;
     if (isLoggedIn) {
       loadInvoices();
       loadOrders();
     }
-  }, [isLoggedIn, loadInvoices, loadOrders]);
+  }, [isLoggedIn, isLoading, loadInvoices, loadOrders]);
 
   const handleCreateInvoice = async () => {
     if (!createForm.orderId) {
@@ -203,6 +205,11 @@ export default function InvoicesPage() {
   const ordersWithoutInvoices = orders.filter(
     (order) => !invoices.some((invoice) => invoice.orderId === order.id)
   );
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return <Loading />;
+  }
 
   if (!isLoggedIn) {
     return <Loading />;

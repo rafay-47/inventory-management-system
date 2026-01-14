@@ -1,10 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
 import { hasPermission } from "@/middleware/roleMiddleware";
 import { auditCreate, createAuditLog } from "@/utils/auditLogger";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 const serializeOrder = (order: any) => {
   const firstItem = order.orderItems?.[0];
@@ -65,55 +63,91 @@ export default async function handler(
         }
 
         // Check if user is a salesperson to filter their sales only
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          include: { 
-            roles: {
-              include: {
-                role: true
-              }
-            }
-          },
-        });
+        // Use getUserRoles which is now cached for better performance
+        const { getUserRoles } = await import("@/middleware/roleMiddleware");
+        const userRoles = await getUserRoles(userId);
 
-        const isAdmin = user?.roles?.some(userRole => userRole.role.name === "admin");
-        const isSalesperson = user?.roles?.some(userRole => userRole.role.name === "salesperson");
+        const isAdmin = userRoles.includes("admin");
+        const isSalesperson = userRoles.includes("salesperson");
+
+        // Build optimized query with selected fields only
+        const selectFields = {
+          id: true,
+          orderNumber: true,
+          customerId: true,
+          status: true,
+          orderedAt: true,
+          fulfilledAt: true,
+          totalAmount: true,
+          notes: true,
+          source: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              userId: true,
+            },
+          },
+          orderItems: {
+            select: {
+              id: true,
+              productId: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              subtotal: true,
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+            take: 1, // Only get first item for list view
+          },
+        };
 
         let orders;
         
         if (isSalesperson && !isAdmin) {
-          // Salespersons only see sales they created (via inventory transactions)
-          orders = await prisma.order.findMany({
+          // Optimized: Get user's sale transactions first, then fetch orders
+          // This avoids expensive nested transaction queries
+          const userTransactions = await prisma.inventoryTransaction.findMany({
             where: {
-              transactions: {
-                some: {
-                  userId: userId,
-                  transactionType: "SALE"
-                }
-              }
+              userId: userId,
+              transactionType: "SALE",
+              orderId: { not: null },
             },
-            include: {
-              customer: true,
-              orderItems: {
-                include: {
-                  product: true,
-                },
-              },
+            select: {
+              orderId: true,
             },
-            orderBy: { orderedAt: "desc" },
+            distinct: ['orderId'],
+            take: 100, // Limit for performance
           });
+
+          const orderIds = userTransactions
+            .map(t => t.orderId)
+            .filter((id): id is string => id !== null);
+
+          if (orderIds.length === 0) {
+            orders = [];
+          } else {
+            orders = await prisma.order.findMany({
+              where: {
+                id: { in: orderIds },
+              },
+              select: selectFields,
+              orderBy: { orderedAt: "desc" },
+              take: 100,
+            });
+          }
         } else {
           // Admins see all orders
           orders = await prisma.order.findMany({
-            include: {
-              customer: true,
-              orderItems: {
-                include: {
-                  product: true,
-                },
-              },
-            },
+            select: selectFields,
             orderBy: { orderedAt: "desc" },
+            take: 100, // Limit results
           });
         }
 

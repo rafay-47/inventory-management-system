@@ -96,7 +96,7 @@ const formatDateTime = (value: string | null) => {
 
 export default function SalespersonDashboard() {
   const router = useRouter();
-  const { isLoggedIn, isSalesperson, user } = useAuth();
+  const { isLoggedIn, isSalesperson, user, isLoading } = useAuth();
   const { toast } = useToast();
 
   const [salesTransactions, setSalesTransactions] = useState<SalesTransaction[]>([]);
@@ -106,7 +106,8 @@ export default function SalespersonDashboard() {
 
   // Redirect if not a salesperson
   useEffect(() => {
-    if (!isLoggedIn) return;
+    // Wait for auth check to complete
+    if (isLoading || !isLoggedIn) return;
     if (!isSalesperson()) {
       router.push("/");
       toast({
@@ -115,7 +116,7 @@ export default function SalespersonDashboard() {
         variant: "destructive",
       });
     }
-  }, [isLoggedIn, isSalesperson, router, toast]);
+  }, [isLoggedIn, isLoading, isSalesperson, router, toast]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -125,7 +126,9 @@ export default function SalespersonDashboard() {
         axiosInstance.get("/products"),
       ]);
       setSalesTransactions(salesRes.data ?? []);
-      setProducts(productsRes.data ?? []);
+      // Handle paginated products response
+      const productsData = productsRes.data?.products || productsRes.data || [];
+      setProducts(productsData);
     } catch (error) {
       console.error("Error loading data", error);
       toast({
@@ -139,11 +142,12 @@ export default function SalespersonDashboard() {
   }, [toast]);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    // Wait for auth check to complete
+    if (isLoading || !isLoggedIn) return;
     if (isSalesperson()) {
       fetchData();
     }
-  }, [isLoggedIn, isSalesperson, fetchData]);
+  }, [isLoggedIn, isLoading, isSalesperson, fetchData]);
 
   // Calculate dashboard statistics
   const stats: DashboardStats = useMemo(() => {
@@ -264,6 +268,11 @@ export default function SalespersonDashboard() {
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5);
   }, [salesTransactions]);
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return <Loading />;
+  }
 
   if (!isLoggedIn) {
     return <Loading />;

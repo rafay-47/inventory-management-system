@@ -1,10 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
 import { hasPermission } from "@/middleware/roleMiddleware";
 import { auditUpdate, createAuditLog } from "@/utils/auditLogger";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 /**
  * API endpoint to receive a purchase order and update inventory.

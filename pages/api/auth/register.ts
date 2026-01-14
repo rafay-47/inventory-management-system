@@ -1,10 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getSessionServer } from "@/utils/auth";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 const registerSchema = z.object({
   name: z.string().min(1),

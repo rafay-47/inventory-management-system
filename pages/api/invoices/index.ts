@@ -1,10 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
 import { hasPermission } from "@/middleware/roleMiddleware";
 import { auditCreate } from "@/utils/auditLogger";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 const generateInvoiceNumber = () => {
   const now = new Date();
@@ -36,25 +34,72 @@ export default async function handler(
           });
         }
 
-        // Check if user is a salesperson to filter their invoices only
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          include: { 
-            roles: {
-              include: {
-                role: true
-              }
-            }
-          },
-        });
+        // Use getUserRoles which is now cached
+        const { getUserRoles } = await import("@/middleware/roleMiddleware");
+        const userRoles = await getUserRoles(userId);
 
-        const isAdmin = user?.roles?.some(userRole => userRole.role.name === "admin");
-        const isSalesperson = user?.roles?.some(userRole => userRole.role.name === "salesperson");
+        const isAdmin = userRoles.includes("admin");
+        const isSalesperson = userRoles.includes("salesperson");
+
+        // Optimize with select fields
+        const selectFields = {
+          id: true,
+          invoiceNumber: true,
+          orderId: true,
+          status: true,
+          issuedAt: true,
+          dueDate: true,
+          totalAmount: true,
+          currency: true,
+          notes: true,
+          order: {
+            select: {
+              id: true,
+              orderNumber: true,
+              customerId: true,
+              status: true,
+              orderedAt: true,
+              totalAmount: true,
+              customer: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              orderItems: {
+                select: {
+                  id: true,
+                  productId: true,
+                  productVariantId: true,
+                  quantity: true,
+                  unitPrice: true,
+                  discount: true,
+                  subtotal: true,
+                  product: {
+                    select: {
+                      id: true,
+                      name: true,
+                      sku: true,
+                    },
+                  },
+                  variant: {
+                    select: {
+                      id: true,
+                      name: true,
+                      sku: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        };
 
         let invoices;
 
         if (isSalesperson && !isAdmin) {
-          // Salespersons only see invoices for sales they created (via inventory transactions)
+          // Salespersons only see invoices for sales they created
           invoices = await prisma.invoice.findMany({
             where: {
               order: {
@@ -66,38 +111,16 @@ export default async function handler(
                 }
               }
             },
-            include: {
-              order: {
-                include: {
-                  customer: true,
-                  orderItems: {
-                    include: {
-                      product: true,
-                      variant: true,
-                    },
-                  },
-                },
-              },
-            },
+            select: selectFields,
             orderBy: { issuedAt: "desc" },
+            take: 100, // Limit results
           });
         } else {
           // Admins see all invoices
           invoices = await prisma.invoice.findMany({
-            include: {
-              order: {
-                include: {
-                  customer: true,
-                  orderItems: {
-                    include: {
-                      product: true,
-                      variant: true,
-                    },
-                  },
-                },
-              },
-            },
+            select: selectFields,
             orderBy: { issuedAt: "desc" },
+            take: 100, // Limit results
           });
         }
 

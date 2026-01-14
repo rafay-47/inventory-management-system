@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
+import { roleCache, permissionCache } from "@/lib/cache";
 
 // Define role names
 export enum UserRoles {
@@ -33,13 +32,28 @@ export const RolePermissions = {
   },
 };
 
-// Get user's roles from the database
+// Get user's roles from the database (with caching)
 export async function getUserRoles(userId: string): Promise<string[]> {
+  const cacheKey = `roles:${userId}`;
+  
+  // Check cache first
+  const cached = roleCache.get(cacheKey);
+  if (cached !== null) {
+    return cached;
+  }
+
+  // Fetch from database
   const userRoles = await prisma.userRole.findMany({
     where: { userId },
     include: { role: true },
   });
-  return userRoles.map((ur) => ur.role.name);
+  
+  const roles = userRoles.map((ur) => ur.role.name);
+  
+  // Cache the result
+  roleCache.set(cacheKey, roles);
+  
+  return roles;
 }
 
 // Check if user has a specific role
@@ -48,23 +62,34 @@ export async function hasRole(userId: string, roleName: string): Promise<boolean
   return roles.includes(roleName);
 }
 
-// Check if user has permission for a specific resource and action
+// Check if user has permission for a specific resource and action (with caching)
 export async function hasPermission(
   userId: string,
   resource: string,
   action: string
 ): Promise<boolean> {
+  const cacheKey = `perm:${userId}:${resource}:${action}`;
+  
+  // Check cache first
+  const cached = permissionCache.get(cacheKey);
+  if (cached !== null) {
+    return cached;
+  }
+
+  // Fetch roles
   const roles = await getUserRoles(userId);
 
   // If user has no roles, grant admin-level access for backwards compatibility
   // This allows existing users to continue working while roles are being assigned
   if (roles.length === 0) {
     console.warn(`User ${userId} has no roles assigned. Granting temporary admin access.`);
+    permissionCache.set(cacheKey, true);
     return true;
   }
 
   // Admin has all permissions
   if (roles.includes(UserRoles.ADMIN)) {
+    permissionCache.set(cacheKey, true);
     return true;
   }
 
@@ -74,11 +99,13 @@ export async function hasPermission(
     if (permissions) {
       const resourcePermissions = permissions[resource as keyof typeof permissions] as string[] | undefined;
       if (resourcePermissions && resourcePermissions.includes(action)) {
+        permissionCache.set(cacheKey, true);
         return true;
       }
     }
   }
 
+  permissionCache.set(cacheKey, false);
   return false;
 }
 
@@ -177,4 +204,10 @@ export const attachUserRoles = async (
   }
 
   next();
+};
+
+// Export cache invalidation function for when roles change
+export const invalidateUserCache = (userId: string) => {
+  roleCache.invalidateUser(userId);
+  permissionCache.invalidateUser(userId);
 };

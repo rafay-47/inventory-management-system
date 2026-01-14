@@ -9,13 +9,19 @@ import { useAuth } from "@/app/authContext";
 
 export default function ProductsPage() {
   const router = useRouter();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isLoggedIn) {
+    // Only redirect after auth check is complete
+    if (!isLoading && !isLoggedIn) {
       router.push("/login");
     }
-  }, [isLoggedIn, router]);
+  }, [isLoggedIn, isLoading, router]);
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return <Loading />;
+  }
 
   if (!isLoggedIn) {
     return <Loading />;

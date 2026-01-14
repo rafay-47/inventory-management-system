@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 // Helper to verify user is admin
 async function verifyAdminAccess(req: NextApiRequest, res: NextApiResponse): Promise<{ userId: string; roles: string[] } | null> {
@@ -84,27 +82,43 @@ export default async function handler(
         ];
       }
 
-      // Get total count
-      const total = await prisma.auditLog.count({ where });
-
-      // Get audit logs
-      const logs = await prisma.auditLog.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limitNum,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+      // Get total count and audit logs in parallel for better performance
+      const [total, logs] = await Promise.all([
+        prisma.auditLog.count({ where }),
+        prisma.auditLog.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limitNum,
+          select: {
+            id: true,
+            userId: true,
+            userName: true,
+            userEmail: true,
+            action: true,
+            entityType: true,
+            entityId: true,
+            entityName: true,
+            oldValues: true,
+            newValues: true,
+            ipAddress: true,
+            userAgent: true,
+            status: true,
+            errorMessage: true,
+            metadata: true,
+            createdAt: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-        },
-      });
+        }),
+      ]);
 
-      // Get summary statistics
+      // Get summary statistics only for the filtered date range
       const stats = await prisma.auditLog.groupBy({
         by: ["action"],
         _count: { action: true },

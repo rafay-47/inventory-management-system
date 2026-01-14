@@ -87,7 +87,7 @@ const formatDate = (value: string | null) =>
 
 export default function SalesPage() {
   const router = useRouter();
-  const { isLoggedIn, isAdmin } = useAuth();
+  const { isLoggedIn, isAdmin, isLoading } = useAuth();
   const { allProducts, loadProducts } = useProductStore();
   const { toast } = useToast();
 
@@ -117,10 +117,11 @@ export default function SalesPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    // Wait for auth check to complete
+    if (isLoading || !isLoggedIn) return;
     loadProducts();
     fetchSalesTransactions();
-  }, [isLoggedIn, loadProducts, fetchSalesTransactions]);
+  }, [isLoggedIn, isLoading, loadProducts, fetchSalesTransactions]);
 
   const salesSummary = useMemo(() => {
     const totalRevenue = salesTransactions.reduce(
@@ -136,6 +137,11 @@ export default function SalesPage() {
     ).size;
     return { totalRevenue, totalUnits, uniqueCustomers };
   }, [salesTransactions]);
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return <Loading />;
+  }
 
   if (!isLoggedIn) {
     return <Loading />;

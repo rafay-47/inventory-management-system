@@ -101,7 +101,7 @@ const formatDate = (value: string | null) =>
   value ? new Date(value).toLocaleDateString() : "—";
 
 export default function PurchaseOrdersPage() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isLoading } = useAuth();
   const { suppliers, loadSuppliers, allProducts, loadProducts } =
     useProductStore();
   const { toast } = useToast();
@@ -146,11 +146,12 @@ export default function PurchaseOrdersPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    // Wait for auth check to complete
+    if (isLoading || !isLoggedIn) return;
     loadSuppliers();
     loadProducts();
     fetchPurchaseOrders();
-  }, [isLoggedIn, loadSuppliers, loadProducts, fetchPurchaseOrders]);
+  }, [isLoggedIn, isLoading, loadSuppliers, loadProducts, fetchPurchaseOrders]);
 
   const purchaseSummary = useMemo(() => {
     const totalSpend = purchaseOrders.reduce(
@@ -170,6 +171,11 @@ export default function PurchaseOrdersPage() {
       return sum + qty * cost;
     }, 0);
   }, [lineItems]);
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return <Loading />;
+  }
 
   if (!isLoggedIn) {
     return <Loading />;

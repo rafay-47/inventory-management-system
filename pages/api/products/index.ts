@@ -1,10 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
 import { hasPermission } from "@/middleware/roleMiddleware";
 import { auditCreate, auditUpdate, auditDelete, createAuditLog } from "@/utils/auditLogger";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 export const productInclude = {
   variants: true,
@@ -199,7 +197,7 @@ export default async function handler(
           });
         }
 
-        const { id } = req.query;
+        const { id, page, limit } = req.query;
 
         if (id && typeof id === "string") {
           const product = await prisma.product.findUnique({
@@ -214,11 +212,93 @@ export default async function handler(
           return res.status(200).json(buildProductResponse(product));
         }
 
-        const products = await prisma.product.findMany({
-          include: productInclude,
-        });
+        // Add pagination support
+        const pageNum = parseInt((page as string) || "1");
+        const limitNum = parseInt((limit as string) || "100");
+        const skip = (pageNum - 1) * limitNum;
 
-        res.status(200).json(products.map(buildProductResponse));
+        // Optimized: Use select instead of include for faster queries
+        const productSelect = {
+          id: true,
+          name: true,
+          sku: true,
+          status: true,
+          userId: true,
+          categoryId: true,
+          description: true,
+          imageUrl: true,
+          createdAt: true,
+          hasVariants: true,
+          minStock: true,
+          maxStock: true,
+          reorderPoint: true,
+          reorderQuantity: true,
+          defaultWarehouseId: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          defaultWarehouse: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          variants: {
+            select: {
+              id: true,
+              productId: true,
+              name: true,
+              sku: true,
+              price: true,
+              quantity: true,
+              size: true,
+              color: true,
+              material: true,
+              weight: true,
+              dimensions: true,
+              attributes: true,
+              imageUrl: true,
+              isActive: true,
+              barcode: true,
+              costPrice: true,
+              minStock: true,
+              maxStock: true,
+              reorderPoint: true,
+              expiryDate: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            where: {
+              isActive: true, // Only fetch active variants for better performance
+            },
+          },
+        };
+
+        // Fetch products with pagination
+        const [products, total] = await Promise.all([
+          prisma.product.findMany({
+            select: productSelect,
+            skip,
+            take: limitNum,
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.product.count(),
+        ]);
+
+        const response = {
+          products: products.map(buildProductResponse),
+          pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total,
+            totalPages: Math.ceil(total / limitNum),
+          },
+        };
+
+        res.status(200).json(response);
       } catch (error) {
         console.error("Error fetching products:", error);
         res.status(500).json({ error: "Failed to fetch products" });

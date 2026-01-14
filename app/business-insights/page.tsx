@@ -14,16 +14,20 @@ import {
   Activity,
   AlertTriangle,
   BarChart3,
+  Calendar,
   DollarSign,
   Download,
   Eye,
   Package,
+  PackageX,
   PieChart as PieChartIcon,
   QrCode,
+  Settings,
   ShoppingCart,
   TrendingDown,
   TrendingUp,
   Users,
+  XCircle,
 } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import {
@@ -76,6 +80,10 @@ export default function BusinessInsightsPage() {
         monthlyTrend: [],
         topProducts: [],
         lowStockProducts: [],
+        outOfStockProducts: [],
+        overstockProducts: [],
+        productsWithoutReorderPoint: [],
+        expiringProducts: [],
         stockUtilization: 0,
         valueDensity: 0,
         stockCoverage: 0,
@@ -89,10 +97,13 @@ export default function BusinessInsightsPage() {
       return sum + product.price * Number(product.quantity);
     }, 0);
 
-    // CORRECTED: Low stock items - products with quantity > 0 AND quantity <= 20 (matching product table logic)
+    // CORRECTED: Low stock items - products with quantity > 0 AND quantity <= reorderPoint (matching product table logic)
     const lowStockItems = allProducts.filter(
-      (product) =>
-        Number(product.quantity) > 0 && Number(product.quantity) <= 20
+      (product) => {
+        const quantity = Number(product.quantity);
+        const reorderPoint = product.reorderPoint ?? product.minStock;
+        return quantity > 0 && typeof reorderPoint === "number" && quantity <= reorderPoint;
+      }
     ).length;
 
     // CORRECTED: Out of stock items - products with quantity = 0
@@ -248,14 +259,72 @@ export default function BusinessInsightsPage() {
         quantity: Number(product.quantity),
       }));
 
-    // Low stock products (matching product table logic: quantity > 0 AND quantity <= 20)
+    // Low stock products (matching product table logic: quantity > 0 AND quantity <= reorderPoint)
     const lowStockProducts = allProducts
-      .filter(
-        (product) =>
-          Number(product.quantity) > 0 && Number(product.quantity) <= 20
-      )
+      .filter((product) => {
+        const quantity = Number(product.quantity);
+        const reorderPoint = product.reorderPoint ?? product.minStock;
+        return quantity > 0 && typeof reorderPoint === "number" && quantity <= reorderPoint;
+      })
       .sort((a, b) => Number(a.quantity) - Number(b.quantity))
-      .slice(0, 5);
+      .slice(0, 10);
+
+    // Out of stock products
+    const outOfStockProducts = allProducts
+      .filter((product) => Number(product.quantity) === 0)
+      .slice(0, 10);
+
+    // Overstock products (exceeding maxStock threshold)
+    const overstockProducts = allProducts
+      .filter((product) => {
+        const quantity = Number(product.quantity);
+        const maxStock = product.maxStock;
+        return typeof maxStock === "number" && quantity > maxStock;
+      })
+      .sort((a, b) => {
+        const aExcess = Number(a.quantity) - (a.maxStock || 0);
+        const bExcess = Number(b.quantity) - (b.maxStock || 0);
+        return bExcess - aExcess;
+      })
+      .slice(0, 10);
+
+    // Products without reorder points (missing inventory thresholds)
+    const productsWithoutReorderPoint = allProducts
+      .filter((product) => {
+        const quantity = Number(product.quantity);
+        return quantity > 0 && !product.reorderPoint && !product.minStock;
+      })
+      .slice(0, 10);
+
+    // Expiring variants (within 30 days)
+    const today = new Date();
+    const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const expiringProducts = allProducts
+      .filter((product) => {
+        if (!product.variants || product.variants.length === 0) return false;
+        return product.variants.some((variant: any) => {
+          if (!variant.expiryDate || !variant.isActive) return false;
+          const expiryDate = new Date(variant.expiryDate);
+          return expiryDate >= today && expiryDate <= thirtyDaysFromNow;
+        });
+      })
+      .map((product) => {
+        const expiringVariant = product.variants?.find((variant: any) => {
+          if (!variant.expiryDate || !variant.isActive) return false;
+          const expiryDate = new Date(variant.expiryDate);
+          return expiryDate >= today && expiryDate <= thirtyDaysFromNow;
+        });
+        return {
+          ...product,
+          expiryDate: expiringVariant?.expiryDate,
+        };
+      })
+      .sort((a, b) => {
+        const dateA = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
+        const dateB = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+        return dateA - dateB;
+      })
+      .slice(0, 10);
 
     return {
       totalProducts,
@@ -273,6 +342,10 @@ export default function BusinessInsightsPage() {
       monthlyTrend,
       topProducts,
       lowStockProducts,
+      outOfStockProducts,
+      overstockProducts,
+      productsWithoutReorderPoint,
+      expiringProducts,
     };
   }, [allProducts]);
 
@@ -543,6 +616,182 @@ export default function BusinessInsightsPage() {
                     <AlertTriangle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                     <p className="text-muted-foreground">
                       No low stock alerts at the moment!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ChartCard>
+
+            {/* Out of Stock Alerts */}
+            <ChartCard title="Out of Stock Products" icon={XCircle}>
+              <div className="space-y-4">
+                {analyticsData.outOfStockProducts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {analyticsData.outOfStockProducts.map((product, index) => (
+                      <Card
+                        key={index}
+                        className="border-red-200 bg-red-50 dark:bg-red-950/20"
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-semibold text-sm">
+                                {product.name}
+                              </h4>
+                              <p className="text-xs text-muted-foreground">
+                                SKU: {product.sku}
+                              </p>
+                            </div>
+                            <Badge variant="destructive" className="text-xs">
+                              Out of Stock
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <XCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <p className="text-muted-foreground">
+                      No products are out of stock!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ChartCard>
+
+            {/* Overstock Alerts */}
+            <ChartCard title="Overstock Alerts" icon={PackageX}>
+              <div className="space-y-4">
+                {analyticsData.overstockProducts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {analyticsData.overstockProducts.map((product, index) => {
+                      const excess = Number(product.quantity) - (product.maxStock || 0);
+                      return (
+                        <Card
+                          key={index}
+                          className="border-purple-200 bg-purple-50 dark:bg-purple-950/20"
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-semibold text-sm">
+                                  {product.name}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                  SKU: {product.sku}
+                                </p>
+                                <p className="text-xs text-purple-600 mt-1">
+                                  Max: {product.maxStock} | Current: {product.quantity}
+                                </p>
+                              </div>
+                              <Badge className="text-xs bg-purple-600">
+                                +{excess} excess
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <PackageX className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <p className="text-muted-foreground">
+                      No overstock issues detected!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ChartCard>
+
+            {/* Expiring Products Alert */}
+            <ChartCard title="Expiring Soon (Next 30 Days)" icon={Calendar}>
+              <div className="space-y-4">
+                {analyticsData.expiringProducts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {analyticsData.expiringProducts.map((product, index) => {
+                      const expiryDate = product.expiryDate ? new Date(product.expiryDate) : null;
+                      const daysUntilExpiry = expiryDate 
+                        ? Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                        : 0;
+                      return (
+                        <Card
+                          key={index}
+                          className="border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20"
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-semibold text-sm">
+                                  {product.name}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                  SKU: {product.sku}
+                                </p>
+                                {expiryDate && (
+                                  <p className="text-xs text-yellow-600 mt-1">
+                                    Expires: {expiryDate.toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge variant="outline" className="text-xs border-yellow-600 text-yellow-600">
+                                {daysUntilExpiry} days
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <p className="text-muted-foreground">
+                      No products expiring in the next 30 days!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ChartCard>
+
+            {/* Missing Configuration Alerts */}
+            <ChartCard title="Products Missing Reorder Points" icon={Settings}>
+              <div className="space-y-4">
+                {analyticsData.productsWithoutReorderPoint.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {analyticsData.productsWithoutReorderPoint.map((product, index) => (
+                      <Card
+                        key={index}
+                        className="border-blue-200 bg-blue-50 dark:bg-blue-950/20"
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-semibold text-sm">
+                                {product.name}
+                              </h4>
+                              <p className="text-xs text-muted-foreground">
+                                SKU: {product.sku}
+                              </p>
+                              <p className="text-xs text-blue-600 mt-1">
+                                Quantity: {product.quantity}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs border-blue-600 text-blue-600">
+                              Configure
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Settings className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <p className="text-muted-foreground">
+                      All products have reorder points configured!
                     </p>
                   </div>
                 )}

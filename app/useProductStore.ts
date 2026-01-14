@@ -70,7 +70,9 @@ export const useProductStore = create<ProductState>((set) => ({
     set({ isLoading: true });
     try {
       const response = await axiosInstance.get("/products");
-      const products = response.data || [];
+      
+      // Handle new paginated response format
+      const products = response.data?.products || response.data || [];
 
       // Optimize by ensuring we don't set the same data
       set((state) => {

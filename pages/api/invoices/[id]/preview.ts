@@ -1,9 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
 import { hasPermission } from "@/middleware/roleMiddleware";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 export default async function handler(
   req: NextApiRequest,

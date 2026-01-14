@@ -1,9 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
 import { getUserRoles } from "@/middleware/roleMiddleware";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 /**
  * API endpoint to get current user information including roles

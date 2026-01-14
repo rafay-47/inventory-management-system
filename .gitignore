@@ -43,3 +43,6 @@ next-env.d.ts
 .netlify
 .vscode
 .cursorignore
+
+# md files
+*.md

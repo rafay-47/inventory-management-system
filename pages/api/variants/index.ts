@@ -1,11 +1,9 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { PrismaClient } from "@prisma/client";
 import { getSessionServer } from "@/utils/auth";
 import { toNullableNumber } from "../products";
 import { hasPermission } from "@/middleware/roleMiddleware";
 import { auditCreate, auditUpdate, auditDelete, createAuditLog } from "@/utils/auditLogger";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/prisma/singleton";
 
 const toNullableDate = (value: unknown) => {
   if (!value) {
