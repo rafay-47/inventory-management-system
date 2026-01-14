@@ -108,7 +108,7 @@ export default async function handler(
           },
         };
 
-        let orders;
+        let orders: any[];
         
         if (isSalesperson && !isAdmin) {
           // Optimized: Get user's sale transactions first, then fetch orders
